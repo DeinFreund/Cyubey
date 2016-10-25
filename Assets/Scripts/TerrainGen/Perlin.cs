@@ -3,7 +3,6 @@ using System.Collections;
 using System.Text;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HashTableHashing;
 using System;
 
 public class Perlin : IGenerator {
@@ -82,7 +81,7 @@ public class Perlin : IGenerator {
     }
 
     private System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
-    private MurmurHash2UInt32Hack murmur = new MurmurHash2UInt32Hack();
+
 
     private float random(long seed)
     {
