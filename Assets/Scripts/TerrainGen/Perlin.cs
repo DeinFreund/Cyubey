@@ -107,6 +107,9 @@ public class Perlin : IGenerator {
         float totweights = 0;
         float result = 0;
         float fx, fy, fz;
+        x += 1000;
+        y += 1000;
+        z += 1000;
         fx = x;
         fy = y;
         fz = z;

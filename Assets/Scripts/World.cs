@@ -12,7 +12,7 @@ public class World : MonoBehaviour {
 
     // Use this for initialization
     void Start() {
-        terrain.freeLocation(new Coordinates(0,0,0),3, 8);
+        terrain.freeLocation(new Coordinates(0,0,0),4, 12);
         Thread thread = new Thread(generateChunks);
         thread.Start();
     }
@@ -23,7 +23,7 @@ public class World : MonoBehaviour {
 
     float lastChunkCheck = -2;
     float lastLoadSoon = -2;
-    static int minViewDistance = 1;
+    static int minViewDistance = 2;
     static int maxViewDistance = 10;
     // Update is called once per frame
     void Update()
@@ -157,5 +157,13 @@ public class World : MonoBehaviour {
         chunks[coords].unload();
         chunks.Remove(coords);
         Profiler.EndSample();
+    }
+
+    void OnApplicationQuit()
+    {
+        if (NetworkManager.isServer())
+        {
+            Account.saveAccounts();
+        }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using System.Text;
 
 public class Field//handles section of files
 {
@@ -182,24 +183,23 @@ public class Field//handles section of files
 		return id;
 	}
 	
-	public string getValue()
+	public byte[] getValue()
 	{
 		if (isLeaf()){
 			
-			return content[0].Substring(1,content[0].Length - 1).Replace("_{_","<").Replace("_}_",">");
+			return Convert.FromBase64String(content[0].Substring(1,content[0].Length - 1));
 		}else{
 			Debug.LogWarning(id + " Tried to read value of field that is no leaf");
-			return "";
+			return new byte[0];
 		}
 		
 	}
 	
 	
-	public void setValue(string val){
-		val = val.Replace("<","_{_");
-		val = val.Replace(">","_}_");
-		content = new List<string>();
-		content.Add(String.Format("={0}",val));
+	public void setValue(byte[] val){
+        string str = Convert.ToBase64String(val);
+        content = new List<string>();
+		content.Add(String.Format("={0}", str));
 	}
 	
 	public Field addField(string name, List<string> content){
@@ -207,8 +207,15 @@ public class Field//handles section of files
 		fields.Add(new Field(content));
 		names.Add(name);
 		return fields[fields.Count - 1];
-	}
-	public Field addField(string name ){
+    }
+    public Field addField(string name, Field field)
+    {
+
+        fields.Add(field);
+        names.Add(name);
+        return fields[fields.Count - 1];
+    }
+    public Field addField(string name ){
 	
 		fields.Add(new Field());
 		names.Add(name);
@@ -246,8 +253,13 @@ public class Field//handles section of files
 	public string serialize(){
 		return String.Join("\n",getContent().ToArray());
 	}
-	
-	public List<string> getContent(){
+
+    public override string ToString()
+    {
+        return serialize();
+    }
+
+    public List<string> getContent(){
 		//Debug.Log("getting content of " + id);
 		//FileIO.WriteFile("data/field" + id + ".txt", content);
 		if (isLeaf()){
@@ -275,9 +287,9 @@ public class Field//handles section of files
 	// custom functions for use with unity
 	
 	public void setVector3(Vector3 vec){
-		atField("x").setValue(vec.x.ToString());
-		atField("y").setValue(vec.y.ToString());
-		atField("z").setValue(vec.z.ToString());
+		atField("x").setString(vec.x.ToString());
+		atField("y").setString(vec.y.ToString());
+		atField("z").setString(vec.z.ToString());
 	}
 	public Vector3 getVector3(){
 		Vector3 vec = new Vector3();
@@ -286,10 +298,10 @@ public class Field//handles section of files
 		vec.z = atField("z").getFloat();
 		return vec;
 	}public void setQuaternion(Quaternion vec ){
-		atField("x").setValue(vec.x.ToString());
-		atField("y").setValue(vec.y.ToString());
-		atField("z").setValue(vec.z.ToString());
-		atField("w").setValue(vec.w.ToString());
+		atField("x").setString(vec.x.ToString());
+		atField("y").setString(vec.y.ToString());
+		atField("z").setString(vec.z.ToString());
+		atField("w").setString(vec.w.ToString());
 	}
 	public Quaternion getQuaternion() {
 		Quaternion vec = new Quaternion();
@@ -301,12 +313,12 @@ public class Field//handles section of files
 	}
 	
 	public void setInt(int val ){
-		setValue(val.ToString());
+		setString(val.ToString());
 	}
 	public int getInt() {
-		if (getValue() != ""){
+		if (getString() != ""){
 			try{
-				return int.Parse(getValue());
+				return int.Parse(getString());
 			}catch{
 				return 0;
 			}
@@ -316,12 +328,12 @@ public class Field//handles section of files
 	}
 	
 	public void setFloat(float val){
-		setValue(val.ToString());
+		setString(val.ToString());
 	}
 	public float getFloat(){
-		if (getValue() != ""){
+		if (getString() != ""){
 			try{
-				return float.Parse(getValue(),System.Globalization.CultureInfo.InvariantCulture.NumberFormat);
+				return float.Parse(getString(),System.Globalization.CultureInfo.InvariantCulture.NumberFormat);
 			}catch{
 				return 0f;
 			}
@@ -332,13 +344,13 @@ public class Field//handles section of files
 	
 	public void setBoolean(bool val){
 		if (val){
-			setValue("true");
+			setString("true");
 		}else{
-			setValue("false");
+			setString("false");
 		}
 	}
 	public bool getBoolean(){
-		if (getValue().ToUpper() == "TRUE"){
+		if (getString().ToUpper() == "TRUE"){
 			return true;
 		}else{
 			return false;
@@ -346,10 +358,10 @@ public class Field//handles section of files
 	}
 	
 	public void setString(string str){
-		setValue(str);
+		setValue(Encoding.UTF8.GetBytes(str));
 	}
 	public string getString(){
-		return getValue();
+		return Encoding.UTF8.GetString(getValue());
 	}
 	
 }
