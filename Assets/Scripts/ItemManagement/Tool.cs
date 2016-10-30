@@ -8,10 +8,8 @@ public class Tool : Item
 
     public Tool(string name, int id, string desc, int durability) : base(name, id, desc)
     {
-        itemName = name;
-        itemID = id;
-        itemDesc = desc;
         itemType = ItemType.Tool;
+        itemMaxCount = 1;
         toolDurability = durability;
         toolHealth = durability;
     }

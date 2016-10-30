@@ -9,11 +9,13 @@ public class Item
     public string itemDesc;
     public Texture2D itemIcon;
     public ItemType itemType;
+    public int itemMaxCount;
 
     public enum ItemType
     {
         Block,
-        Tool
+        Tool,
+        Consumable
     }
 
     public Item() { }
@@ -23,6 +25,6 @@ public class Item
         itemName = name;
         itemID = id;
         itemDesc = desc;
-        itemIcon = Resources.Load<Texture2D>("item_icons/" + id);
+        itemIcon = Resources.Load<Texture2D>("items/" + itemName);
     }
 }
