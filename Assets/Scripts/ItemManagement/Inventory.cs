@@ -9,7 +9,13 @@ public class Inventory : MonoBehaviour {
     public List<int> counts = new List<int>(); //occurrences of item i
     public List<Item> slots = new List<Item>();
     private ItemDatabase database;
-    public bool show;
+    public bool showGUI;
+    public bool showTooltip;
+    private string tooltip;
+    private bool dragging;
+    private Item itemBuffer;
+    private int countBuffer;
+    private int oldIndex;
 
     public Inventory(int w, int h, int m, int s)
     {
@@ -44,22 +50,32 @@ public class Inventory : MonoBehaviour {
     {
         if (Input.GetButtonDown("Inventory"))
         {
-            show = !show;
+            showGUI = !showGUI;
         }
     }
 
     void OnGUI()
     {
-        if (show)
+        tooltip = "";
+        if (showGUI)
         {
             DrawInventory();
+        }
+        if (showTooltip)
+        {
+            GUI.Box(new Rect(Event.current.mousePosition.x,Event.current.mousePosition.y,200,200), tooltip);
+        }
+        if (dragging)
+        {
+            GUI.DrawTexture(new Rect(Event.current.mousePosition.x, Event.current.mousePosition.y, boxSize, boxSize), itemBuffer.itemIcon);
         }
     }
 
     void DrawInventory()
     {
-        int offsetX = (Screen.width/2) - ((width*(boxSize+margin))-margin)/2;
-        int offsetY = (Screen.height/2) - ((height * (boxSize + margin)) - margin) / 2;
+        Event e = Event.current;
+        int offsetX = (Screen.width / 2) - ((width * (boxSize + margin)) - margin) / 2;
+        int offsetY = (Screen.height / 2) - ((height * (boxSize + margin)) - margin) / 2;
         int yMargin = 0;
         int n = 0;
         for (int j = 0; j < height; j++)
@@ -70,16 +86,68 @@ public class Inventory : MonoBehaviour {
                 Rect slotRect = new Rect(offsetX + (i * boxSize) + xMargin, offsetY + (j * boxSize) + yMargin, boxSize, boxSize);
                 GUI.Box(slotRect, "");
                 slots[n] = inventory[n];
-                if(slots[n].itemName != null)
+                if (slots[n].itemName != null)
                 {
-                    GUI.DrawTexture(slotRect,slots[n].itemIcon);
+                    GUI.DrawTexture(slotRect, slots[n].itemIcon);
                     GUI.Label(slotRect, counts[n].ToString());
+                    if (slotRect.Contains(e.mousePosition))
+                    {
+                        CreateTooltip(slots[n], counts[n]);
+                        showTooltip = true;
+                        if (e.button == 0 && e.type == EventType.mouseDrag && !dragging)
+                        {
+                            dragging = true;
+
+                            itemBuffer = slots[n];
+                            countBuffer = counts[n];
+                            oldIndex = n;
+                            inventory[n] = new Item();
+                            counts[n] = 0;
+                        }
+                        if (e.type == EventType.mouseUp && dragging)
+                        {
+                            inventory[oldIndex] = inventory[n];
+                            counts[oldIndex] = counts[n];
+
+                            inventory[n] = itemBuffer;
+                            counts[n] = countBuffer;
+
+                            dragging = false;
+                            itemBuffer = null;
+                        }
+                    }
                 }
-                xMargin+=margin;
+                else
+                {
+                    if (slotRect.Contains(e.mousePosition) && e.type == EventType.mouseUp && dragging)
+                    {
+                        inventory[n] = itemBuffer;
+                        counts[n] = countBuffer;
+
+                        dragging = false;
+                        itemBuffer = null;
+                    }
+                    if (false) //hover over no slot
+                    {
+                        inventory[oldIndex] = itemBuffer;
+                        counts[oldIndex] = countBuffer;
+                    }
+                }
+                
+                if (tooltip == "")
+                {
+                    showTooltip = false;
+                }
+                xMargin += margin;
                 n++;
             }
-            yMargin+=margin;
+            yMargin += margin;
         }
+    }
+
+    void CreateTooltip(Item item, int occurences)
+    {
+        tooltip = item.itemName + " (" + occurences.ToString() + ") " + item.itemType.ToString() + "\n\n" + item.itemDesc;
     }
 
     public int AddItem(int id, int amount) //returns amount of Items not taken

@@ -32,9 +32,9 @@ public class MouseLook : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.I))
         {
-            lockCursor = false;
+            lockCursor = !lockCursor;
         }
         // Ensure the cursor is always locked when set
         Cursor.lockState = lockCursor ? CursorLockMode.Locked : CursorLockMode.None;
