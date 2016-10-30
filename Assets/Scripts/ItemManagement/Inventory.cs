@@ -213,4 +213,24 @@ public class Inventory : MonoBehaviour {
         }
         return count;
     }
+
+    public bool InInventory(int id, int amount)
+    {
+        int count = amount;
+        for (int i = 0; i < inventory.Count; i++)
+        {
+            if(inventory[i].itemID == id)
+            {
+                if(counts[i] >= count)
+                {
+                    return true;
+                }
+                else
+                {
+                    count -= counts[i];
+                }
+            }
+        }
+        return false;
+    } 
 }
