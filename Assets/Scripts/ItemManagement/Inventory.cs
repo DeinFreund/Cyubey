@@ -13,6 +13,7 @@ public class Inventory : MonoBehaviour {
     public bool showTooltip;
     private string tooltip;
     private bool dragging;
+    private bool mouse;
     private Item itemBuffer;
     private int countBuffer;
     private int oldIndex;
@@ -52,6 +53,10 @@ public class Inventory : MonoBehaviour {
         {
             showGUI = !showGUI;
         }
+        if (Input.GetMouseButtonDown(0))
+        {
+            mouse = true;
+        }
     }
 
     void OnGUI()
@@ -86,6 +91,7 @@ public class Inventory : MonoBehaviour {
                 Rect slotRect = new Rect(offsetX + (i * boxSize) + xMargin, offsetY + (j * boxSize) + yMargin, boxSize, boxSize);
                 GUI.Box(slotRect, "");
                 slots[n] = inventory[n];
+
                 if (slots[n].itemName != null)
                 {
                     GUI.DrawTexture(slotRect, slots[n].itemIcon);
@@ -94,43 +100,41 @@ public class Inventory : MonoBehaviour {
                     {
                         CreateTooltip(slots[n], counts[n]);
                         showTooltip = true;
-                        if (e.button == 0 && e.type == EventType.mouseDrag && !dragging)
+                        if (mouse)
                         {
-                            dragging = true;
+                            if (!dragging)
+                            {
+                                dragging = true;
 
-                            itemBuffer = slots[n];
-                            countBuffer = counts[n];
-                            oldIndex = n;
-                            inventory[n] = new Item();
-                            counts[n] = 0;
-                        }
-                        if (e.type == EventType.mouseUp && dragging)
-                        {
-                            inventory[oldIndex] = inventory[n];
-                            counts[oldIndex] = counts[n];
+                                itemBuffer = slots[n];
+                                countBuffer = counts[n];
+                                oldIndex = n;
+                                inventory[n] = new Item();
+                                counts[n] = 0;
+                            }
+                            else
+                            {
+                                inventory[oldIndex] = inventory[n];
+                                counts[oldIndex] = counts[n];
 
-                            inventory[n] = itemBuffer;
-                            counts[n] = countBuffer;
+                                inventory[n] = itemBuffer;
+                                counts[n] = countBuffer;
 
-                            dragging = false;
-                            itemBuffer = null;
+                                dragging = false;
+                                itemBuffer = null;
+                            }
                         }
                     }
                 }
                 else
                 {
-                    if (slotRect.Contains(e.mousePosition) && e.type == EventType.mouseUp && dragging)
+                    if (mouse && slotRect.Contains(e.mousePosition) && dragging)
                     {
                         inventory[n] = itemBuffer;
                         counts[n] = countBuffer;
 
                         dragging = false;
                         itemBuffer = null;
-                    }
-                    if (false) //hover over no slot
-                    {
-                        inventory[oldIndex] = itemBuffer;
-                        counts[oldIndex] = countBuffer;
                     }
                 }
                 
@@ -143,6 +147,7 @@ public class Inventory : MonoBehaviour {
             }
             yMargin += margin;
         }
+        mouse = false;
     }
 
     void CreateTooltip(Item item, int occurences)
