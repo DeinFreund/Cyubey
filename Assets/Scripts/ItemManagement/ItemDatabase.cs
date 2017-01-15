@@ -3,13 +3,23 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class ItemDatabase : MonoBehaviour {
-    public List<Item> items = new List<Item>();
+
+    public Item[] items;
+    public int counter;
+
+    public ItemDatabase(int size)
+    {
+        items = new Item[size];
+        counter = 0;
+    }
 
     void Start()
     {
-        items.Add(new Tool("Wrench", 0, "A typical Wrench",100));
-        items.Add(new Tool("Screwdriver", 1, "Fits for most screws", 150));
-        items.Add(new Consumable("Potato", 2, "Why not"));
+        items = new Item[256];
+        counter = 0;
+
+        registerItem("Wrench", "A tool");
+        registerItem("Potato", "A Potato");
     }
 
     void Awake()
@@ -17,15 +27,14 @@ public class ItemDatabase : MonoBehaviour {
         DontDestroyOnLoad(transform.gameObject);
     }
 
+    public void registerItem(string name, string desc)
+    {
+        items[counter] = new Item(counter, name, desc);
+        counter++;
+    }
+
     public Item ItemFromID(int id)
     {
-        for (int i = 0; i < items.Count; i++)
-        {
-            if(items[i].itemID == id)
-            {
-                return items[i];
-            }
-        }
-        return null;
+        return items[id];
     }
 }

@@ -1,197 +1,114 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 
 public class Inventory : MonoBehaviour {
-    int height, width; //# of horizontal slots, vertical slots
-    int margin, boxSize; //margin between slots, size of a slot
-    public List<Item> inventory = new List<Item>();
-    public List<int> counts = new List<int>(); //occurrences of item i
-    public List<Item> slots = new List<Item>();
+    
     private ItemDatabase database;
-    public bool showGUI;
-    public bool showTooltip;
-    private string tooltip;
-    private bool dragging;
-    private bool mouse;
-    private Item itemBuffer;
-    private int countBuffer;
-    private int oldIndex;
+    public int width;
+    public int height;
+    public int barSize;
+    public Slot[] slots;
+    private Image draging;
+    private bool pick;
+    private int buffer;
 
-    public Inventory(int w, int h, int m, int s)
+
+    void Awake ()
     {
-        height = h;
-        width = w;
-        margin = m;
+        draging = Instantiate<Image>(Resources.Load<Image>("items/dummy"));
+        database = FindObjectOfType<ItemDatabase>();
+        width = 10;
+        height = 2;
+        barSize = 8;
+        slots = new Slot[width * height + barSize];
+        for(int i = 0; i < width * height + barSize; i++)
+        {
+            slots[i] = new Slot();
+        }
+        AddSlot(0, 42);
+        AddSlot(1, 24);
     }
 
-    void Start ()
+    public void itemMove(int id)
     {
-        width = 5;
-        height = 3;
-        margin = 20;
-        boxSize = 60;
-        for (int i = 0; i < width*height; i++)
+        print(id.ToString());
+        if (!pick && getSlot(id).getItem() != null)
         {
-            slots.Add(new Item());
-            inventory.Add(new Item());
-            counts.Add(0);
+            pick = true;
+            buffer = id;
+            draging = getSlot(id).getSprite();
+            //draging.transform.SetSiblingIndex(0);
         }
-        database = GameObject.FindGameObjectWithTag("Database").GetComponent<ItemDatabase>();
-        AddItem(0, 2);
-        AddItem(2, 40);
-        AddItem(1, 1);
-        AddItem(2, 40);
-        RemoveItem(2, 31);
-        RemoveItem(0, 1);
-
-    }
-
-    void Update()
-    {
-        if (Input.GetButtonDown("Inventory"))
+        else if (pick)
         {
-            showGUI = !showGUI;
-        }
-        if (Input.GetMouseButtonDown(0))
-        {
-            mouse = true;
+            pick = false;
+            swapSlot(buffer, id);
         }
     }
 
-    void OnGUI()
+    public Image getDraging()
     {
-        tooltip = "";
-        if (showGUI)
-        {
-            DrawInventory();
-        }
-        if (showTooltip)
-        {
-            GUI.Box(new Rect(Event.current.mousePosition.x,Event.current.mousePosition.y,200,200), tooltip);
-        }
-        if (dragging)
-        {
-            GUI.DrawTexture(new Rect(Event.current.mousePosition.x, Event.current.mousePosition.y, boxSize, boxSize), itemBuffer.itemIcon);
-        }
+        return draging;
     }
 
-    void DrawInventory()
+    public bool getPick()
     {
-        Event e = Event.current;
-        int offsetX = (Screen.width / 2) - ((width * (boxSize + margin)) - margin) / 2;
-        int offsetY = (Screen.height / 2) - ((height * (boxSize + margin)) - margin) / 2;
-        int yMargin = 0;
-        int n = 0;
-        for (int j = 0; j < height; j++)
+        return pick;
+    }
+
+    public int getWidth()
+    {
+        return width;
+    }
+
+    public int getHeight()
+    {
+        return height;
+    }
+
+    public int getBarSize()
+    {
+        return barSize;
+    }
+
+    public Slot getSlot(int pos)
+    {
+        return slots[pos];
+    }
+
+    public void swapSlot(int from, int to)
+    {
+        Slot buff = slots[to];
+        slots[to] = slots[from];
+        slots[from] = buff;
+    }
+
+    public bool AddSlot(int id, int amount)
+    {
+        for(int i = 0; i < slots.Length; i++)
         {
-            int xMargin = 0;
-            for (int i = 0; i < width; i++)
+            if (slots[i].getItem() != null)
             {
-                Rect slotRect = new Rect(offsetX + (i * boxSize) + xMargin, offsetY + (j * boxSize) + yMargin, boxSize, boxSize);
-                GUI.Box(slotRect, "");
-                slots[n] = inventory[n];
-
-                if (slots[n].itemName != null)
+                if (slots[i].getItem().getID() == id)
                 {
-                    GUI.DrawTexture(slotRect, slots[n].itemIcon);
-                    GUI.Label(slotRect, counts[n].ToString());
-                    if (slotRect.Contains(e.mousePosition))
-                    {
-                        CreateTooltip(slots[n], counts[n]);
-                        showTooltip = true;
-                        if (mouse)
-                        {
-                            if (!dragging)
-                            {
-                                dragging = true;
-
-                                itemBuffer = slots[n];
-                                countBuffer = counts[n];
-                                oldIndex = n;
-                                inventory[n] = new Item();
-                                counts[n] = 0;
-                            }
-                            else
-                            {
-                                inventory[oldIndex] = inventory[n];
-                                counts[oldIndex] = counts[n];
-
-                                inventory[n] = itemBuffer;
-                                counts[n] = countBuffer;
-
-                                dragging = false;
-                                itemBuffer = null;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    if (mouse && slotRect.Contains(e.mousePosition) && dragging)
-                    {
-                        inventory[n] = itemBuffer;
-                        counts[n] = countBuffer;
-
-                        dragging = false;
-                        itemBuffer = null;
-                    }
-                }
-                
-                if (tooltip == "")
-                {
-                    showTooltip = false;
-                }
-                xMargin += margin;
-                n++;
-            }
-            yMargin += margin;
-        }
-        mouse = false;
-    }
-
-    void CreateTooltip(Item item, int occurences)
-    {
-        tooltip = item.itemName + " (" + occurences.ToString() + ") " + item.itemType.ToString() + "\n\n" + item.itemDesc;
-    }
-
-    public int AddItem(int id, int amount) //returns amount of Items not taken
-    {
-        int count = amount;
-        for (int i = 0; i < inventory.Count; i++)
-        {
-            if (inventory[i].itemName == null)
-            {
-                inventory[i] = database.items[id];
-                if (database.items[id].itemMaxCount >= count)
-                {
-                    counts[i] = count;
-                    return 0;
-                }
-                else
-                {
-                    counts[i] = inventory[id].itemMaxCount;
-                    count -= inventory[id].itemMaxCount;
+                    slots[i].addCount(amount);
+                    return true;
                 }
             }
-
-            else if (inventory[i].itemID == id)
+            else
             {
-                if(inventory[id].itemMaxCount - counts[i] >= count)
-                {
-                    counts[i] += count;
-                    return 0;
-                }
-                else
-                {
-                    counts[i] = inventory[id].itemMaxCount;
-                    count -= counts[i]-count;
-                }
+                slots[i].setItem(database.ItemFromID(id));
+                slots[i].setCount(amount);
+                slots[i].getSprite().sprite = database.ItemFromID(id).getIcon();
+                return true;
             }
         }
-        return count;
+        return false;
     }
 
+    /*
     public int RemoveItem(int id, int amount) //returns number of missing items
     {
         int count = amount;
@@ -238,4 +155,5 @@ public class Inventory : MonoBehaviour {
         }
         return false;
     } 
+    */
 }
