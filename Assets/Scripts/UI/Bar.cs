@@ -6,17 +6,17 @@ public class Bar : MonoBehaviour {
 
     public Inventory inv;
     public RectTransform ParentPanel;
-    CanvasGroup canvas;
     private int width, height, bar;
     private int space;
     private int offsetX;
     private int slotSize = 50;
     private GameObject[] buttons;
+    private int current, last;
+    private bool visible;
 
     // Use this for initialization
     void Start () {
-        canvas = ParentPanel.GetComponent<CanvasGroup>();
-        print("Bar start");
+
         width = inv.getWidth();
         height = inv.getHeight();
         bar = inv.getBarSize();
@@ -28,6 +28,7 @@ public class Bar : MonoBehaviour {
         buttons = new GameObject[bar];
 
         Image cur;
+        Text tex;
 
         for (int i = 0; i < bar; i++)
         {
@@ -39,7 +40,15 @@ public class Bar : MonoBehaviour {
             button.transform.SetParent(ParentPanel, false);
             button.transform.localScale = new Vector2(0.5f, 0.5f);
             button.transform.localPosition = new Vector2(offsetX + i * (space + slotSize), 50);
-            button.GetComponent<Image>().sprite = Resources.Load<Sprite>("items/background");
+            if(i == current)
+            {
+                button.GetComponent<Image>().sprite = Resources.Load<Sprite>("items/selection");
+            }
+            else
+            {
+                button.GetComponent<Image>().sprite = Resources.Load<Sprite>("items/background");
+            }
+
             button.GetComponent<Button>().onClick.AddListener(() => inv.itemMove(n));
             button.transform.SetSiblingIndex(1);
 
@@ -50,13 +59,65 @@ public class Bar : MonoBehaviour {
             cur.transform.SetSiblingIndex(2);
         }
     }
+
+    void mouseScroll()
+    {
+        if (Input.GetAxis("Mouse ScrollWheel") > 0f)
+        {
+            if (current == bar - 1)
+            {
+                current = 0;
+                last = bar - 1;
+            }
+            else
+            {
+                last = current++;
+            }
+        }
+        if (Input.GetAxis("Mouse ScrollWheel") < 0f)
+        {
+            if (current == 0)
+            {
+                current = bar - 1;
+                last = 0;
+            }
+            else
+            {
+                last = current--;
+            }
+        }
+    }
 	
 	// Update is called once per frame
 	void Update () {
         for (int i = 0; i < bar; i++)
         {
+            if(current != last)
+            {
+                buttons[current].GetComponent<Image>().sprite = Resources.Load<Sprite>("items/selection");
+                buttons[last].GetComponent<Image>().sprite = Resources.Load<Sprite>("items/background");
+            }
+
             inv.getSlot(width*height + i).getSprite().transform.localPosition = new Vector2(offsetX + i * (space + slotSize), 50);
             inv.getSlot(width * height + i).getSprite().transform.SetParent(GetComponent<CanvasGroup>().transform);
+        }
+        mouseScroll();
+        if (Input.GetKeyDown(KeyCode.I))
+        {
+            CanvasGroup canvas = ParentPanel.GetComponent<CanvasGroup>();
+            if (visible)
+            {
+                canvas.blocksRaycasts = false;
+                canvas.interactable = false;
+                UnityEngine.EventSystems.EventSystem.current.sendNavigationEvents = false;
+            }
+            else
+            {
+                canvas.blocksRaycasts = true;
+                canvas.interactable = true;
+                UnityEngine.EventSystems.EventSystem.current.sendNavigationEvents = true;
+            }
+            visible = !visible;
         }
     }
 }

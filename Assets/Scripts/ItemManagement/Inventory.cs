@@ -10,42 +10,80 @@ public class Inventory : MonoBehaviour {
     public int height;
     public int barSize;
     public Slot[] slots;
-    private Image draging;
-    private bool pick;
-    private int buffer;
-
+    public Image draging;
+    public bool pickup;
+    public int buffer;
+    private GameObject[] canvas;
 
     void Awake ()
     {
+        canvas = GameObject.FindGameObjectsWithTag("Item");
         draging = Instantiate<Image>(Resources.Load<Image>("items/dummy"));
         database = FindObjectOfType<ItemDatabase>();
         width = 10;
-        height = 2;
+        height = 4;
         barSize = 8;
         slots = new Slot[width * height + barSize];
         for(int i = 0; i < width * height + barSize; i++)
         {
             slots[i] = new Slot();
         }
-        AddSlot(0, 42);
-        AddSlot(1, 24);
+        AddSlot(0, 88);
+        AddSlot(1, 69);
+    }
+
+    public bool AddSlot(int id, int amount)
+    {
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i].getItem() != null)
+            {
+                if (slots[i].getItem().getID() == id)
+                {
+                    slots[i].addCount(amount);
+                    return true;
+                }
+            }
+            else
+            {
+                slots[i].setItem(database.ItemFromID(id));
+                slots[i].setCount(amount);
+                slots[i].getSprite().sprite = database.ItemFromID(id).getIcon();
+                slots[i].getText().GetComponent<Text>().text = amount.ToString();
+                return true;
+            }
+        }
+        return false;
     }
 
     public void itemMove(int id)
     {
         print(id.ToString());
-        if (!pick && getSlot(id).getItem() != null)
+        if (!pickup && getSlot(id).getItem() != null)
         {
-            pick = true;
+            pickup = true;
             buffer = id;
             draging = getSlot(id).getSprite();
-            //draging.transform.SetSiblingIndex(0);
+            if(id < width * height)
+            {
+                canvas[0].transform.SetAsFirstSibling();
+            }
+            else
+            {
+                canvas[1].transform.SetAsFirstSibling();
+            }
         }
-        else if (pick)
+        else if (pickup)
         {
-            pick = false;
+            pickup = false;
             swapSlot(buffer, id);
+            draging = null;
         }
+    }
+
+    public int getBuffer()
+    {
+        return buffer;
     }
 
     public Image getDraging()
@@ -55,7 +93,12 @@ public class Inventory : MonoBehaviour {
 
     public bool getPick()
     {
-        return pick;
+        return pickup;
+    }
+
+    public void setPick(bool val)
+    {
+        pickup = val;
     }
 
     public int getWidth()
@@ -84,76 +127,4 @@ public class Inventory : MonoBehaviour {
         slots[to] = slots[from];
         slots[from] = buff;
     }
-
-    public bool AddSlot(int id, int amount)
-    {
-        for(int i = 0; i < slots.Length; i++)
-        {
-            if (slots[i].getItem() != null)
-            {
-                if (slots[i].getItem().getID() == id)
-                {
-                    slots[i].addCount(amount);
-                    return true;
-                }
-            }
-            else
-            {
-                slots[i].setItem(database.ItemFromID(id));
-                slots[i].setCount(amount);
-                slots[i].getSprite().sprite = database.ItemFromID(id).getIcon();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /*
-    public int RemoveItem(int id, int amount) //returns number of missing items
-    {
-        int count = amount;
-        for (int i = inventory.Count-1; i >= 0; i--)
-        {
-            if(inventory[i].itemName != null && inventory[i].itemName == database.items[id].itemName)
-            {
-                if(counts[i] >= count)
-                {
-                    counts[i] -= count;
-                    if(counts[i] == 0)
-                    {
-                        inventory[i] = new Item();
-                    }
-                    return 0;
-                }
-                else
-                {
-                    count -= counts[i];
-                    counts[i] = 0;
-                    inventory[i] = new Item();
-                }
-            }
-        }
-        return count;
-    }
-
-    public bool InInventory(int id, int amount)
-    {
-        int count = amount;
-        for (int i = 0; i < inventory.Count; i++)
-        {
-            if(inventory[i].itemID == id)
-            {
-                if(counts[i] >= count)
-                {
-                    return true;
-                }
-                else
-                {
-                    count -= counts[i];
-                }
-            }
-        }
-        return false;
-    } 
-    */
 }

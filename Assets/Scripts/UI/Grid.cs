@@ -18,6 +18,9 @@ public class Grid : MonoBehaviour
     // Use this for initialization
     void Start()
     {
+        CanvasGroup canvas = ParentPanel.GetComponent<CanvasGroup>();
+        canvas.transform.SetSiblingIndex(0);
+
         hide();
 
         width = inv.getWidth();
@@ -53,28 +56,11 @@ public class Grid : MonoBehaviour
                 cur.transform.localPosition = new Vector2(offsetX + j * (space + slotSize),
                     ParentPanel.rect.height - offsetY - i * (space + slotSize));
                 cur.transform.SetSiblingIndex(2);
+
+                inv.getSlot(n).getText().transform.SetParent(cur.transform,false);
             }
         }
     }
-
-    /*
-    public void ItemMove(int id)
-    {
-        print(id.ToString());
-        if (!pick && inv.getSlot(id).getItem() != null)
-        {
-            pick = true;
-            buffer = id;
-
-            draging = inv.getSlot(id).getSprite();
-        }
-        else if (pick)
-        {
-            pick = false;
-            inv.swapSlot(buffer, id);
-        }
-    }
-    */
 
     // Update is called once per frame
     void Update()
@@ -92,11 +78,15 @@ public class Grid : MonoBehaviour
             }
         }
         
-        if (Input.GetButtonDown("Inventory"))
+        if (Input.GetKeyDown(KeyCode.I))
         {
             if(visible)
             {
                 hide();
+                if(inv.getPick())
+                {
+                    inv.itemMove(inv.getBuffer());
+                }
             }
             else
             {
@@ -114,7 +104,9 @@ public class Grid : MonoBehaviour
         CanvasGroup canvas = ParentPanel.GetComponent<CanvasGroup>();
         canvas.alpha = 0f;
         canvas.blocksRaycasts = false;
+        canvas.interactable = false;
         visible = false;
+        UnityEngine.EventSystems.EventSystem.current.sendNavigationEvents = false;
     }
 
     void show()
@@ -122,6 +114,8 @@ public class Grid : MonoBehaviour
         CanvasGroup canvas = ParentPanel.GetComponent<CanvasGroup>();
         canvas.alpha = 1f;
         canvas.blocksRaycasts = true;
+        canvas.interactable = true;
         visible = true;
+        UnityEngine.EventSystems.EventSystem.current.sendNavigationEvents = false;
     }
 }
