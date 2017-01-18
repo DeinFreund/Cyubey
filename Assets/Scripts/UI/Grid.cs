@@ -48,14 +48,14 @@ public class Grid : MonoBehaviour
                 button.transform.localPosition = new Vector2(offsetX + j * (space + slotSize), (int)ParentPanel.rect.height - offsetY - i * (space + slotSize));
                 button.GetComponent<Image>().sprite = Resources.Load<Sprite>("items/background");
                 button.GetComponent<Button>().onClick.AddListener(() => inv.itemMove(n));
-                button.transform.SetSiblingIndex(1);
+                button.transform.SetAsFirstSibling();
 
                 cur = inv.getSlot(n).getSprite();
                 cur.transform.SetParent(ParentPanel, false);
                 cur.transform.localScale = new Vector2(slotSize, slotSize);
                 cur.transform.localPosition = new Vector2(offsetX + j * (space + slotSize),
                     ParentPanel.rect.height - offsetY - i * (space + slotSize));
-                cur.transform.SetSiblingIndex(2);
+                cur.transform.SetAsLastSibling();
 
                 inv.getSlot(n).getText().transform.SetParent(cur.transform,false);
             }

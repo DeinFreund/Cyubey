@@ -11,7 +11,7 @@ public class Account {
     public static void loadAccounts()
     {
         accounts = new Dictionary<string, Account>();
-        Field field = new Field (FileIO.read("accounts.xml"));
+        Field field = new Field (FileIO.read("Accounts.xml"));
         foreach (Field data in field.getFields("account"))
         {
             Account acc = new Account(data);

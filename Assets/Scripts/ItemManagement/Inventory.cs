@@ -10,14 +10,18 @@ public class Inventory : MonoBehaviour {
     public int height;
     public int barSize;
     public Slot[] slots;
+    private GameObject dragedSlot;
     public Image draging;
     public bool pickup;
     public int buffer;
     private GameObject[] canvas;
+    public bool locked;
+    private bool shift;
 
     void Awake ()
     {
         canvas = GameObject.FindGameObjectsWithTag("Item");
+
         draging = Instantiate<Image>(Resources.Load<Image>("items/dummy"));
         database = FindObjectOfType<ItemDatabase>();
         width = 10;
@@ -28,32 +32,104 @@ public class Inventory : MonoBehaviour {
         {
             slots[i] = new Slot();
         }
-        AddSlot(0, 88);
-        AddSlot(1, 69);
+        AddItem(0, 188);
+        AddItem(1, 18);
     }
 
-    public bool AddSlot(int id, int amount)
+    void Update()
     {
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            shift = true;
+        }
+        else
+        {
+            shift = false;
+        }
+    }
+
+    public int AddItem(int id, int amount)
+    {
+        while (locked) ;
+        locked = true;
+        int count = amount;
         for (int i = 0; i < slots.Length; i++)
         {
-            if (slots[i].getItem() != null)
+            if (slots[i].getItem() == null)
             {
-                if (slots[i].getItem().getID() == id)
+                if(count > 99)
                 {
-                    slots[i].addCount(amount);
-                    return true;
+                    slots[i] = new Slot(database.ItemFromID(id), 99);
+                    count -= 99;
+                }
+                else
+                {
+                    slots[i] = new Slot(database.ItemFromID(id), count);
+                    locked = false;
+                    return 0;
                 }
             }
             else
             {
-                slots[i].setItem(database.ItemFromID(id));
-                slots[i].setCount(amount);
-                slots[i].getSprite().sprite = database.ItemFromID(id).getIcon();
-                slots[i].getText().GetComponent<Text>().text = amount.ToString();
-                return true;
+                if(slots[i].getItem().getID() == id)
+                {
+                    if(slots[i].getCount() + count > 99)
+                    {
+                        slots[i] = new Slot(database.ItemFromID(id), 99);
+                        count -= (99 - slots[i].getCount());
+                    }
+                    else
+                    {
+                        slots[i].addCount(count);
+                        locked = false;
+                        return 0;
+                    }
+                }
             }
         }
-        return false;
+        locked = false;
+        return count;
+    }
+
+    public int RemoveItem(int id, int amount)
+    {
+        while (locked) ;
+        locked = true;
+        int count = amount;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i].getItem() != null)
+            {
+                if(slots[i].getItem().getID() == id)
+                {
+                    if(slots[i].getCount() < count)
+                    {
+                        count -= slots[i].getCount();
+                        slots[i] = new Slot();
+                    }
+                    else
+                    {
+                        slots[i].removeCount(count);
+                        return 0;
+                    }
+                }
+            }
+        }
+        locked = false;
+        return count;
+    }
+
+    public int CountItem(int id)
+    {
+        int counter = 0;
+        for(int i = 0; i < width*height + barSize; i++)
+        {
+            if(slots[i].getItem() == database.ItemFromID(id))
+            {
+                counter += slots[i].getCount();
+            }
+        }
+        return counter;
     }
 
     public void itemMove(int id)
@@ -61,9 +137,34 @@ public class Inventory : MonoBehaviour {
         print(id.ToString());
         if (!pickup && getSlot(id).getItem() != null)
         {
+            if (shift)
+            {
+                if(id < width * height)
+                {
+                    for(int i = 0; i < barSize; i++)
+                    {
+                        if(slots[width * height + i].getItem() == null)
+                        {
+                            swapSlot(id, i + width * height);
+                            return;
+                        }
+                    }
+                } else
+                {
+                    for (int i = 0; i < width*height; i++)
+                    {
+                        if (slots[i].getItem() == null)
+                        {
+                            swapSlot(id, i);
+                            return;
+                        }
+                    }
+                }
+            }
             pickup = true;
             buffer = id;
             draging = getSlot(id).getSprite();
+            draging.transform.SetAsLastSibling();
             if(id < width * height)
             {
                 canvas[0].transform.SetAsFirstSibling();

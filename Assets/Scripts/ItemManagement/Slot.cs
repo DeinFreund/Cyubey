@@ -22,6 +22,7 @@ public class Slot {
         text.transform.localScale = new Vector2(0.01f, 0.01f);
         text.GetComponent<Text>().font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         text.GetComponent<Text>().fontSize = 20;
+        text.GetComponent<Text>().text = count.ToString();
     }
 
     public Slot() //for empty Slots
@@ -63,6 +64,11 @@ public class Slot {
     public void addCount(int newCount)
     {
         count += newCount;
+    }
+
+    public void removeCount(int newCount)
+    {
+        count -= newCount;
     }
 
     public void setCount(int newCount)
