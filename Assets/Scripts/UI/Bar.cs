@@ -15,7 +15,7 @@ public class Bar : MonoBehaviour {
     private bool visible;
 
     // Use this for initialization
-    void Start () {
+    public void Init() {
 
         width = inv.getWidth();
         height = inv.getHeight();

@@ -26,9 +26,18 @@ public class Player {
         gameobject.GetComponent<VelocityInterpolator>().enabled = false;
         gameobject.GetComponent<ChunkDrawer>().enabled = true;
         gameobject.GetComponent<MovementController>().enabled = true;
+        gameobject.GetComponent<Inventory>().enabled = true;
         gameobject.GetComponentInChildren<Camera>().enabled = true;
         gameobject.GetComponentInChildren<MouseLook>().enabled = true;
         gameobject.GetComponentInChildren<AudioListener>().enabled = true;
+        GameObject grid = GameObject.Find("Grid");
+        GameObject bar = GameObject.Find("ItemSelection");
+        grid.GetComponent<Grid>().inv = gameobject.GetComponent<Inventory>();
+        grid.GetComponent<Grid>().Init();
+        grid.GetComponent<Grid>().enabled = true;
+        bar.GetComponent<Bar>().inv = gameobject.GetComponent<Inventory>();
+        bar.GetComponent<Bar>().Init();
+        bar.GetComponent<Bar>().enabled = true;
     }
 
 

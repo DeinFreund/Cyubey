@@ -12,11 +12,16 @@ public class Grid : MonoBehaviour
 
     public RectTransform ParentPanel;
     private int width, height;
-    private bool visible;
+    private static bool visible;
     private GameObject[] buttons;
 
+    public static bool isVisible()
+    {
+        return visible;
+    }
+
     // Use this for initialization
-    void Start()
+    public void Init()
     {
         CanvasGroup canvas = ParentPanel.GetComponent<CanvasGroup>();
         canvas.transform.SetSiblingIndex(0);
@@ -78,7 +83,7 @@ public class Grid : MonoBehaviour
             }
         }
         
-        if (Input.GetKeyDown(KeyCode.I))
+        if (Input.GetButtonDown("Inventory"))
         {
             if(visible)
             {

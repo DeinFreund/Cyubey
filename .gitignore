@@ -42,3 +42,7 @@ sysinfo.txt
 ehthumbs.db
 Thumbs.db
 Thumbs.db.meta
+
+#config
+Accounts.xml
+output_log.txt

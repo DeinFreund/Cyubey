@@ -32,13 +32,18 @@ public class MouseLook : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.I))
+        if (Input.GetButtonDown("Cancel"))
         {
             lockCursor = !lockCursor;
         }
         // Ensure the cursor is always locked when set
-        Cursor.lockState = lockCursor ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible = !lockCursor;
+        Cursor.lockState = (lockCursor && !Grid.isVisible()) ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = !(lockCursor && !Grid.isVisible());
+
+        if (Grid.isVisible())
+        {
+            return;
+        }
 
         // Allow the script to clamp based on a desired target value.
         var targetOrientation = Quaternion.Euler(targetDirection);

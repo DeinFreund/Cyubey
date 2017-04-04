@@ -21,12 +21,7 @@ public class ItemDatabase : MonoBehaviour {
         registerItem("Wrench", "A tool");
         registerItem("Potato", "A Potato");
     }
-
-    void Awake()
-    {
-        DontDestroyOnLoad(transform.gameObject);
-    }
-
+    
     public void registerItem(string name, string desc)
     {
         items[counter] = new Item(counter, name, desc);
