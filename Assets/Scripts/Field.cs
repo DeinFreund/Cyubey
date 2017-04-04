@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using System.Text;
+using System.IO;
+using System.IO.Compression;
 
 public class Field//handles section of files
 {
@@ -96,7 +98,29 @@ public class Field//handles section of files
 	public  Field(string serial) : this(serial.Split('\n')){
 
     }
+
+
+    private static string Unzip(byte[] bytes)
+    {
+        using (var msi = new MemoryStream(bytes))
+        using (var mso = new MemoryStream())
+        {
+            using (var gs = new GZipStream(msi, CompressionMode.Decompress))
+            {
+                //gs.CopyTo(mso);
+                CopyTo(gs, mso);
+            }
+
+            return Encoding.UTF8.GetString(mso.ToArray());
+        }
+    }
+
+    public Field(byte[] compressed) : this(Unzip(compressed))
+    {
+
+    }
 	
+
 	public int size(){
 		return fields.Count;
 	}
@@ -248,9 +272,38 @@ public class Field//handles section of files
 			names.RemoveAt(result[i]);
 		}
 	}
-	
-	
-	public string serialize(){
+
+    private static void CopyTo(Stream src, Stream dest)
+    {
+        byte[] bytes = new byte[4096];
+
+        int cnt;
+
+        while ((cnt = src.Read(bytes, 0, bytes.Length)) != 0)
+        {
+            dest.Write(bytes, 0, cnt);
+        }
+    }
+
+    public byte[] compress()
+    {
+        var bytes = Encoding.UTF8.GetBytes(serialize());
+
+        using (var msi = new MemoryStream(bytes))
+        using (var mso = new MemoryStream())
+        {
+            using (var gs = new GZipStream(mso, CompressionMode.Compress))
+            {
+                //msi.CopyTo(gs);
+                CopyTo(msi, gs);
+            }
+
+            return mso.ToArray();
+        }
+    }
+
+
+    public string serialize(){
 		return String.Join("\n",getContent().ToArray());
 	}
 

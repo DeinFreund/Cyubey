@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System;
 using System.Threading;
 using System.Runtime.CompilerServices;
+using UnityEngine.Networking.NetworkSystem;
+using UnityEngine.Profiling;
 
 public class World : MonoBehaviour {
 
@@ -15,6 +17,7 @@ public class World : MonoBehaviour {
         terrain.freeLocation(new Coordinates(0,0,0),4, 12);
         Thread thread = new Thread(generateChunks);
         thread.Start();
+        ClientNetworkManager.send(TCPMessageID.READY, new Field());
     }
 
     static Queue<Coordinates> loadSoon = new Queue<Coordinates>();
@@ -23,11 +26,13 @@ public class World : MonoBehaviour {
 
     float lastChunkCheck = -2;
     float lastLoadSoon = -2;
-    static int minViewDistance = 2;
+    static int minViewDistance = 1;
+    static int preloadDistance = 3;
     static int maxViewDistance = 10;
     // Update is called once per frame
     void Update()
     {
+        if (Camera.main == null) return;
         if (initQueue.Count > 0)
         {
             lastLoadSoon = Time.time;
@@ -38,7 +43,7 @@ public class World : MonoBehaviour {
                 chunk.init();
             }
         }
-        if (Time.time - lastChunkCheck > 0.5)
+        if (Time.time - lastChunkCheck > 1.0)
         {
             Vector3 campos = Camera.main.transform.position;
             Coordinates playerPos = new Position((int)System.Math.Ceiling(campos.x), (int)System.Math.Ceiling(campos.y), (int)System.Math.Ceiling(campos.z) -1).getChunkCoordinates();
@@ -69,6 +74,20 @@ public class World : MonoBehaviour {
                             loadChunk(coords, false);
                             //return; //one chunk at a time
                             //loaded.Add(coords);
+                        }
+                    }
+                }
+            }//HashSet<Coordinates> loaded = new HashSet<Coordinates>();
+            for (int x = playerPos.getX() - preloadDistance; x <= playerPos.getX() + preloadDistance; x++)
+            {
+                for (int y = playerPos.getY() - preloadDistance; y <= playerPos.getY() + preloadDistance; y++)
+                {
+                    for (int z = playerPos.getZ() - preloadDistance; z <= playerPos.getZ() + preloadDistance; z++)
+                    {
+                        Coordinates coords = new Coordinates(x, y, z);
+                        if (coords.distanceTo(playerPos) <= preloadDistance + 0.0001f && !chunks.ContainsKey(coords))
+                        {
+                            requestChunkLoad(coords);
                         }
                     }
                 }
@@ -161,9 +180,11 @@ public class World : MonoBehaviour {
 
     void OnApplicationQuit()
     {
-        if (NetworkManager.isServer())
+        if (ServerNetworkManager.isServer())
         {
             Account.saveAccounts();
+            ServerNetworkManager.shutdown();
         }
+        ClientNetworkManager.shutdown();
     }
 }

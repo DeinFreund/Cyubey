@@ -14,6 +14,7 @@ public class MovementController : MonoBehaviour {
 
     }
 
+    private float lastNetUpdate = 0;
     private Vector3 vel;
     private Vector3 lastPos;
     private Vector3[] projections = new Vector3[] { new Vector3(1, 1, 0), new Vector3(0, 1, 1), new Vector3(1, 0, 1), new Vector3(1, 0, 0), new Vector3(0, 1, 0) , new Vector3(0, 0, 1), new Vector3(0,0,0)};
@@ -21,6 +22,14 @@ public class MovementController : MonoBehaviour {
 
     void Update ()
     {
+        if (Time.time - lastNetUpdate > 0.5)
+        {
+            lastNetUpdate = Time.time;
+            //Debug.Log("Sending position update for position " + transform.position);
+            
+            ClientNetworkManager.sendUnreliable(new PositionUpdate(ClientNetworkManager.getMyPlayer().id, transform.position, playerRotation.rotation, vel));
+        }
+
         Vector3 campos = Camera.main.transform.position;
         Position feetpos = new Position((int)System.Math.Ceiling(transform.position.x), (int)System.Math.Ceiling(transform.position.y) - 2, (int)System.Math.Ceiling(transform.position.z) - 1);
         if (feetpos.getChunk() == null)

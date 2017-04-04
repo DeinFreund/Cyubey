@@ -6,6 +6,8 @@ using UnityEngine.UI;
 public class MenuActions : MonoBehaviour
 {
 
+    public static ConcurrentQueue<string> events = new ConcurrentQueue<string>();
+
     // Use this for initialization
     void Start()
     {
@@ -15,12 +17,16 @@ public class MenuActions : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
+        string name;
+        while (events.TryDequeue(out name))
+        {
+            transform.SendMessage(name);
+        }
     }
 
     void hostGame()
     {
-        if (NetworkManager.hostGame())
+        if (ServerNetworkManager.hostGame())
         {
             transform.Find("MenuPanel").gameObject.SetActive(false);
             transform.Find("LoginPanel").gameObject.SetActive(true);
@@ -33,7 +39,16 @@ public class MenuActions : MonoBehaviour
     }
     void joinGame()
     {
-        NetworkManager.joinGame(GameObject.Find("textIP").GetComponent<Text>().text);
+        if (ClientNetworkManager.joinGame(GameObject.Find("textIP").GetComponent<Text>().text))
+        {
+            transform.Find("MenuPanel").gameObject.SetActive(false);
+            transform.Find("LoginPanel").gameObject.SetActive(true);
+        }
+        else
+        {
+            transform.Find("PopupPanel").gameObject.SetActive(true);
+            GameObject.Find("textPopup").GetComponent<Text>().text = "Error joining server";
+        }
     }
 
     void connected()
@@ -52,13 +67,19 @@ public class MenuActions : MonoBehaviour
 
     void login()
     {
-        NetworkManager.login(GameObject.Find("textUsername").GetComponent<Text>().text, GameObject.Find("textPassword").GetComponent<Text>().text);
+        ClientNetworkManager.login(GameObject.Find("textUsername").GetComponent<Text>().text, GameObject.Find("textPassword").GetComponent<Text>().text);
     }
 
     void loginError()
     {
         transform.Find("PopupPanel").gameObject.SetActive(true);
         GameObject.Find("textPopup").GetComponent<Text>().text = "Login failed";
+    }
+
+    void loadGame()
+    {
+        Debug.Log("Loading game");
+        SceneManager.LoadScene("cyubey");
     }
 
 }

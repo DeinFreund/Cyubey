@@ -8,9 +8,11 @@ public class BlockFactory : MonoBehaviour {
     public static Transform[] block;
     public static Mesh[] blockmesh;
     public static Transform chunk;
+    public static Transform playerPrefab;
 
     public Transform[] _block;
     public Transform _chunk;
+    public Transform _playermodel;
 
     protected static Dictionary<int, HashSet<GameObject> > gopool = new Dictionary<int, HashSet<GameObject> >();
     protected static Dictionary<int, List<Block>> blockpool = new Dictionary<int, List<Block>>();
@@ -20,6 +22,7 @@ public class BlockFactory : MonoBehaviour {
         
         block = _block;
         chunk = _chunk;
+        playerPrefab = _playermodel;
         blockmesh = new Mesh[block.Length];
         for (int i = 0; i < _block.Length; i++)
         {

@@ -7,6 +7,7 @@ using System;
 public class Account {
 
     private static Dictionary<string, Account> accounts;
+    private static short idCounter = 100;
 
     public static void loadAccounts()
     {
@@ -48,6 +49,7 @@ public class Account {
     private byte[] password;
     private byte[] salt;
     private Client client = null;
+    public readonly short id = idCounter++;
 
     public Account(string name)
     {
@@ -64,9 +66,9 @@ public class Account {
     public Field serialize()
     {
         Field field = new Field();
-        field.atField("name").setString(name);
-        field.atField("password").setValue(password);
-        field.atField("salt").setValue(salt);
+        field.addField("name").setString(name);
+        field.addField("password").setValue(password);
+        field.addField("salt").setValue(salt);
         return field;
     }
 
@@ -110,5 +112,10 @@ public class Account {
     public string getName()
     {
         return name;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is Account && ((Account)obj).id == id;
     }
 }
