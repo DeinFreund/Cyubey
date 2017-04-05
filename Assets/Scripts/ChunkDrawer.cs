@@ -178,7 +178,7 @@ public class ChunkDrawer : MonoBehaviour {
             //Debug.Log("Drawing chunk " + c.getCoordinates() + " with " + faces.Count + " connections");
 
             Profiler.EndSample();
-            Debug.DrawRay(c.getCenter() + new Vector3(1,1,1), (Vector3)incomingFace.getNormal() * 5, maxdep++ == 0 ? Color.green : Color.blue, 0.1f);
+            Debug.DrawRay(c.getCenter() + new Vector3(1,1,1) - vecpos, (Vector3)incomingFace.getNormal() * 5, maxdep++ == 0 ? Color.green : Color.blue, 0.1f);
             //if (maxdep++ > 4) break;
             
             foreach (Chunk.Face face in faces)
@@ -192,8 +192,8 @@ public class ChunkDrawer : MonoBehaviour {
                     if (interestingChunks != null) interestingChunks.Add(c.getCoordinates() + face.getNormal());
                     continue;
                 }
-                //Debug.DrawRay(vecpos, c.getCenter() - vecpos, Color.red, 0.1f);
-                Debug.DrawRay(c.getCenter(), (Vector3)face.getNormal()* 5, incomingFace == null ? Color.blue : Color.red, 0.1f);
+                Debug.DrawRay(new Vector3(), c.getCenter() - vecpos, Color.yellow, 0.1f);
+                Debug.DrawRay(c.getCenter() - vecpos, (Vector3)face.getNormal()* 5, incomingFace == null ? Color.blue : Color.red, 0.1f);
                 stack.Push(new Args(face.getOpposingFace().getChunk(), face.getOpposingFace(), minX, minY, maxX, maxY));
             }
         }

@@ -11,8 +11,8 @@ public class World : MonoBehaviour {
 
     static readonly LocationFreer terrain = new LocationFreer(
         new LayerBlender(
-            new Layer(new Perlin(42, new float[]{0.01f, 0.05f, 0.1f, 0.5f}, 1), -1),
-            new Layer(new Perlin(42, new float[] { 0.01f, 0.05f, 0.1f, 0.5f }, 4), 0)
+            new Layer(new Bias(new Perlin(42, new float[]{0.5f, 2f}, 4), 0.58f), -1),
+            new Layer(new Perlin(42, new float[] { 0.05f, 0.1f, 0.2f, 0.5f }, 4), 0)
         ));
     protected static Dictionary<Coordinates, Chunk> chunks = new Dictionary<Coordinates, Chunk>();
 
@@ -33,7 +33,7 @@ public class World : MonoBehaviour {
     float lastLoadSoon = -2;
     static int minViewDistance = 1;
     static int preloadDistance = 3;
-    static int maxViewDistance = 10;
+    static int maxViewDistance = 8;
     float lastAlive;
     float curTime;
     // Update is called once per frame

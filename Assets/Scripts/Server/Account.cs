@@ -118,4 +118,9 @@ public class Account {
     {
         return obj is Account && ((Account)obj).id == id;
     }
+
+    public override int GetHashCode()
+    {
+        return id;
+    }
 }

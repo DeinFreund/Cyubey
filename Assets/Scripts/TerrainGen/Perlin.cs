@@ -4,13 +4,18 @@ using System.Text;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System;
+using System.Linq;
 
 public class Perlin : IGenerator {
 
-    private int seed;
-    private float[] weights = {0.01f,0.05f,0.1f,0.5f};
-    private int sizeSkip = 2; //small details to skip
-    private float[] randoms = new float[1000000];
+    private readonly int seed;
+    private readonly float[] weights = { 0.01f, 0.05f, 0.1f, 0.5f };
+    private readonly int sizeSkip = 2; //small details to skip
+    private readonly float[] randoms = new float[1000000];
+    private readonly float[] offsetsX;
+    private readonly float[] offsetsY;
+    private readonly float[] offsetsZ;
+    private readonly float totweights = 0;
 
     private int next2(int num)
     {
@@ -31,12 +36,22 @@ public class Perlin : IGenerator {
             this.sizeSkip = weightOffset;
             this.weights = weights;
         }
+        this.totweights = weights.Sum();
+        offsetsX = new float[weights.Length];
+        offsetsY = new float[weights.Length];
+        offsetsZ = new float[weights.Length];
+        for (int i = 0; i < weights.Length; i++)
+        {
+            offsetsX[i] = (float)rnd.NextDouble() * 1000;
+            offsetsY[i] = (float)rnd.NextDouble() * 1000;
+            offsetsZ[i] = (float)rnd.NextDouble() * 1000;
+        }
         this.seed = seed;
-        
-        if (false)
+
+        if (false && sizeSkip == 1)
         {
             int s = 512;
-            for (int z = 0; z < 1; z++)
+            for (int z = 0; z < 5; z++)
             {
                 StringBuilder img = new StringBuilder();
                 img.Append("P2\n" + s + " " + s + "\n128\n");
@@ -75,10 +90,10 @@ public class Perlin : IGenerator {
             }
         }
     }
-    
+
     private float random(long x, long y, long z)
     {
-        return randoms[((((x  + y * 30011 + z * 1000003 + seed * 997) % 2000000011 + 2000000011) % 2000000011)) % randoms.Length];
+        return randoms[((((x + y * 30011 + z * 1000003 + seed * 997) % 2000000011 + 2000000011) % 2000000011)) % randoms.Length];
     }
 
     private System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
@@ -90,9 +105,9 @@ public class Perlin : IGenerator {
         //return murmur.Hash(new byte[] { (byte)seed, (byte)(seed >> 8), (byte)(seed >> 16), (byte)(seed >> 24) }) / (float)uint.MaxValue;
         //return (float)rnd.NextDouble();
         //return md5.ComputeHash(new byte[] { (byte)seed, (byte)(seed >> 8), (byte)(seed >> 16), (byte)(seed >> 24) })[seed % 4] / 256f;
-        return ((((2000000011L * seed + 1013904223L) ) % 65536) / (float)(65536));
+        return ((((2000000011L * seed + 1013904223L)) % 65536) / (float)(65536));
     }
-    
+
     private float interp(float v0, float v1, float fac)
     {
         return v0 * (1 - fac) + v1 * fac;
@@ -105,6 +120,23 @@ public class Perlin : IGenerator {
 
     public float getValue(int x, int y, int z)
     {
+        float result = 0;
+        float fx, fy, fz;
+        fx = x;
+        fy = y;
+        fz = z;
+        fx /= (1 << sizeSkip);
+        fy /= (1 << sizeSkip);
+        fz /= (1 << sizeSkip);
+        for (int i = 0; i < weights.Length; ++i)
+        {
+            result += weights[i] * (float)SimplexNoise.noise(fx - offsetsX[i], fy - offsetsY[i], fz - offsetsZ[i]);
+            fx /= 2;
+            fy /= 2;
+            fz /= 2;
+        }
+        return result / totweights;
+        /*
         float totweights = 0;
         float result = 0;
         float fx, fy, fz;
@@ -137,7 +169,7 @@ public class Perlin : IGenerator {
             fy /= 2;
             fz /= 2;
         }
-        return result / totweights;
+        return result / totweights;*/
     }
     public float[,,] getValues(Coordinates start, Coordinates end)
     {
