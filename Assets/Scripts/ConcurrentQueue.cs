@@ -1,12 +1,36 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
-public class ConcurrentQueue<T>
+public class ConcurrentQueue<T> : IEnumerable<T>
 {
     private Queue<T> m_queue;
+
+    internal int Count
+    {
+        get { lock (m_queue) { return m_queue.Count; } }
+    }
 
     public ConcurrentQueue()
     {
         m_queue = new Queue<T>();
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        lock (m_queue)
+        {
+            return m_queue.ToList().GetEnumerator();
+        }
+    }
+
+    internal bool Contains(T thingie)
+    {
+        lock (m_queue)
+        {
+            return m_queue.Contains(thingie);
+        }
     }
 
     internal void Enqueue(T state)
@@ -32,5 +56,10 @@ public class ConcurrentQueue<T>
                 return false;
             }
         }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
     }
 }

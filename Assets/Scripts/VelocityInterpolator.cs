@@ -7,11 +7,13 @@ public class VelocityInterpolator : MonoBehaviour {
 
     public void updateTransform(Vector3 pos, Quaternion rot, Vector3 vel)
     {
-        var fac = Mathf.Min(1f, Vector3.Distance(transform.position, pos) / 10);
-        transform.position = transform.position * (1 - fac) + fac * pos;
+        Vector3 myPos = transform.position - MovementController.worldParent.transform.position;
+        var fac = Mathf.Min(1f, Vector3.Distance(myPos, pos) / 10);
+        myPos = myPos * (1 - fac) + fac * pos;
         transform.rotation = Quaternion.Lerp(transform.rotation, rot, 0.5f);
 
         velocity = vel;
+        transform.position = myPos + MovementController.worldParent.transform.position;
     }
 
 

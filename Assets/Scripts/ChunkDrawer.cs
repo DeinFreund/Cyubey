@@ -43,7 +43,7 @@ public class ChunkDrawer : MonoBehaviour {
     private void drawChunk(Chunk c, Chunk.Face incomingFace, float bottomLeftX, float bottomLeftY, float topRightX, float topRightY)
     {
         Vector3[] corners = new Vector3[8];
-        Args arg; Pair<Chunk, Chunk.Face> args;
+        Args arg;
         Stack<Args> stack = new Stack<Args>();
         stack.Push(new Args(c, incomingFace, bottomLeftX, bottomLeftY, topRightX, topRightY));
         int maxdep = 0;

@@ -19,7 +19,7 @@ public class Perlin : IGenerator {
         return res;
     }
 
-    public Perlin(int seed, float[] weights)
+    public Perlin(int seed, float[] weights, int weightOffset)
     {
         System.Random rnd = new System.Random(seed);
         for (int i = 0; i < randoms.Length; i++)
@@ -28,6 +28,7 @@ public class Perlin : IGenerator {
         }
         if (weights != null)
         {
+            this.sizeSkip = weightOffset;
             this.weights = weights;
         }
         this.seed = seed;

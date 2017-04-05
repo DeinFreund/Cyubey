@@ -9,7 +9,11 @@ using UnityEngine.Profiling;
 
 public class World : MonoBehaviour {
 
-    static readonly LocationFreer terrain = new LocationFreer(new Perlin(42, null));
+    static readonly LocationFreer terrain = new LocationFreer(
+        new LayerBlender(
+            new Layer(new Perlin(42, new float[]{0.01f, 0.05f, 0.1f, 0.5f}, 1), -1),
+            new Layer(new Perlin(42, new float[] { 0.01f, 0.05f, 0.1f, 0.5f }, 4), 0)
+        ));
     protected static Dictionary<Coordinates, Chunk> chunks = new Dictionary<Coordinates, Chunk>();
 
     // Use this for initialization
@@ -21,9 +25,9 @@ public class World : MonoBehaviour {
         ClientNetworkManager.send(TCPMessageID.READY, new Field());
     }
 
-    static Queue<Coordinates> loadSoon = new Queue<Coordinates>();
-    static Queue<Chunk> initQueue = new Queue<Chunk>();
-    static Queue<Coordinates> loadAsap = new Queue<Coordinates>();
+    static ConcurrentQueue<Coordinates> loadSoon = new ConcurrentQueue<Coordinates>();
+    static ConcurrentQueue<Chunk> initQueue = new ConcurrentQueue<Chunk>();
+    static ConcurrentQueue<Coordinates> loadAsap = new ConcurrentQueue<Coordinates>();
 
     float lastChunkCheck = -2;
     float lastLoadSoon = -2;
@@ -41,14 +45,14 @@ public class World : MonoBehaviour {
             Debug.LogError("Loading thread died");
         }
         if (Camera.main == null) return;
-        if (initQueue.Count > 0)
+        Chunk toInit;
+        if (initQueue.TryDequeue(out toInit))
         {
             lastLoadSoon = Time.time;
-            Chunk chunk = initQueue.Dequeue();
-            if (!chunks.ContainsKey(chunk.getCoordinates()))
+            if (!chunks.ContainsKey(toInit.getCoordinates()))
             {
-                chunks.Add(chunk.getCoordinates(), chunk);
-                chunk.init();
+                chunks.Add(toInit.getCoordinates(), toInit);
+                toInit.init();
             }
         }
         if (Time.time - lastChunkCheck > 1.0)
@@ -106,14 +110,22 @@ public class World : MonoBehaviour {
     {
         while (true)
         {
-            //Debug.Log(loadSoon.Count);
-            lastAlive = curTime;
-            if (loadSoon.Count > 0)
+            try
             {
-                loadChunk(loadSoon.Dequeue(), true);
-            }else
+                //Debug.Log(loadSoon.Count);
+                lastAlive = curTime;
+                Coordinates toLoad;
+                if (loadSoon.TryDequeue(out toLoad))
+                {
+                    loadChunk(toLoad, true);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+            }catch(Exception ex)
             {
-                Thread.Sleep(30);
+                Debug.LogError("Exception in generateChunks: " + ex);
             }
         }
     }
