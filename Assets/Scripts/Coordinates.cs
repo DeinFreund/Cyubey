@@ -66,7 +66,12 @@ public struct Coordinates
     {
         return new Coordinates(c1 * c2.getX(), c1 * c2.getY(), c1 * c2.getZ());
     }
-    
+
+    public static Coordinates operator *(Coordinates c2, int c1)
+    {
+        return new Coordinates(c1 * c2.getX(), c1 * c2.getY(), c1 * c2.getZ());
+    }
+
     public static implicit operator Vector3(Coordinates coords) 
     {
         return new Vector3(coords.getX(), coords.getY(), coords.getZ()); 

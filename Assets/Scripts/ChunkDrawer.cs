@@ -22,6 +22,9 @@ public class ChunkDrawer : MonoBehaviour {
     private HashSet<Coordinates> interestingChunks = null;
     private HashSet<Chunk.Face> startfaces;
 
+    private Vector3 vecpos;
+    private Position pos;
+
     private struct Args
     {
         public Chunk c; public Chunk.Face incomingFace; public float bottomLeftX; public float bottomLeftY; public float topRightX; public float topRightY;
@@ -39,7 +42,6 @@ public class ChunkDrawer : MonoBehaviour {
 
     private void drawChunk(Chunk c, Chunk.Face incomingFace, float bottomLeftX, float bottomLeftY, float topRightX, float topRightY)
     {
-        Vector3 startpos = transform.position;//new Position((int)transform.position.x, (int)transform.position.y, (int)transform.position.z).getChunk().getCenter();
         Vector3[] corners = new Vector3[8];
         Args arg; Pair<Chunk, Chunk.Face> args;
         Stack<Args> stack = new Stack<Args>();
@@ -67,9 +69,9 @@ public class ChunkDrawer : MonoBehaviour {
             Profiler.BeginSample("args2");
             chunksProcessed.Add(c);
 
-            int cx = c.getXOffset();
-            int cy = c.getYOffset();
-            int cz = c.getZOffset();
+            int cx = c.getXOffset() - pos.x;
+            int cy = c.getYOffset() - pos.y;
+            int cz = c.getZOffset() - pos.z;
             int s = Chunk.size;
 
             Profiler.EndSample();
@@ -181,7 +183,7 @@ public class ChunkDrawer : MonoBehaviour {
             
             foreach (Chunk.Face face in faces)
             {
-                if (Vector3.Dot(c.getCenter() - startpos, face.getNormal()) < -0.01f && (c.getCenter() - startpos).magnitude > Chunk.size * 2)
+                if (Vector3.Dot(c.getCenter() - vecpos, face.getNormal()) < -0.01f && (c.getCenter() - vecpos).magnitude > Chunk.size * 2)
                 {
                     continue;
                 }
@@ -190,7 +192,7 @@ public class ChunkDrawer : MonoBehaviour {
                     if (interestingChunks != null) interestingChunks.Add(c.getCoordinates() + face.getNormal());
                     continue;
                 }
-                //Debug.DrawRay(transform.position, c.getCenter() - transform.position, Color.red, 0.1f);
+                //Debug.DrawRay(vecpos, c.getCenter() - vecpos, Color.red, 0.1f);
                 Debug.DrawRay(c.getCenter(), (Vector3)face.getNormal()* 5, incomingFace == null ? Color.blue : Color.red, 0.1f);
                 stack.Push(new Args(face.getOpposingFace().getChunk(), face.getOpposingFace(), minX, minY, maxX, maxY));
             }
@@ -200,16 +202,19 @@ public class ChunkDrawer : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
         
-        Position pos = new Position((int)transform.position.x, (int)transform.position.y, (int)transform.position.z);
+        pos = MovementController.feetPosition.above();
+        vecpos = -MovementController.worldParent.transform.position;
         //pos = new Position(0, 0, 0);
         if (pos.getChunk() != null)
         {
 
             if (World.getRequestCount() < 1 && Time.frameCount % 1 == 0)
             {
+                //Debug.Log("Looking for interesting chunks");
                 interestingChunks = new HashSet<Coordinates>();
             }else
             {
+                //Debug.Log("not Looking for interesting chunks");
                 interestingChunks = null;
             }
             Profiler.BeginSample("chunks");
@@ -227,7 +232,7 @@ public class ChunkDrawer : MonoBehaviour {
                     Chunk.Face best = c2.getFaces()[0];
                     foreach (Chunk.Face f in c2.getFaces())
                     {
-                        if (Vector3.Dot(transform.position - c2.getCenter(), f.getNormal()) > Vector3.Dot(transform.position - c2.getCenter(), best.getNormal()))
+                        if (Vector3.Dot(vecpos - c2.getCenter(), f.getNormal()) > Vector3.Dot(vecpos - c2.getCenter(), best.getNormal()))
                         {
                             best = f;
                         }

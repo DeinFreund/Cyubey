@@ -8,10 +8,13 @@ public class MovementController : MonoBehaviour {
     public float gravity = 10;
     public Transform playerRotation;
 
+    public static GameObject worldParent;
+    public static Position feetPosition = new Position(0, 0, 0);
+
 
     // Use this for initialization
     void Start() {
-
+        worldParent = new GameObject();
     }
 
     private float lastNetUpdate = 0;
@@ -22,16 +25,17 @@ public class MovementController : MonoBehaviour {
 
     void Update ()
     {
+        Vector3 ownPosition = -worldParent.transform.position;
         if (Time.time - lastNetUpdate > 0.5)
         {
             lastNetUpdate = Time.time;
             //Debug.Log("Sending position update for position " + transform.position);
             
-            ClientNetworkManager.sendUnreliable(new PositionUpdate(ClientNetworkManager.getMyPlayer().id, transform.position, playerRotation.rotation, vel));
+            ClientNetworkManager.sendUnreliable(new PositionUpdate(ClientNetworkManager.getMyPlayer().id, ownPosition, playerRotation.rotation, vel));
         }
-
-        Vector3 campos = Camera.main.transform.position;
-        Position feetpos = new Position((int)System.Math.Ceiling(transform.position.x), (int)System.Math.Ceiling(transform.position.y) - 2, (int)System.Math.Ceiling(transform.position.z) - 1);
+        
+        Position feetpos = new Position((int)System.Math.Ceiling(ownPosition.x), (int)System.Math.Ceiling(ownPosition.y) - 2, (int)System.Math.Ceiling(ownPosition.z) - 1);
+        feetPosition = feetpos;
         if (feetpos.getChunk() == null)
         {
             Debug.Log("Area not loaded, freezing player");
@@ -48,27 +52,27 @@ public class MovementController : MonoBehaviour {
         Vector3 origVel = vel;
         Vector3 temp = Vector3.zero;
         //Debug.Log(vel);
-        move:
-        lastPos = transform.position;
-        transform.position += Time.deltaTime * vel;
+        lastPos = ownPosition;
+        ownPosition += Time.deltaTime * vel;
         check:
 
         foreach (Transform child in gameObject.GetComponentsInChildren<Transform>())
         {
             if (!child.gameObject.name.ToLower().Equals("collider")) continue;
-            feetpos = new Position((int)System.Math.Ceiling(child.position.x), (int)System.Math.Ceiling(child.position.y) - 2, (int)System.Math.Ceiling(child.position.z) - 1);
+            Vector3 childPos = child.position + ownPosition;
+            feetpos = new Position((int)System.Math.Ceiling(childPos.x), (int)System.Math.Ceiling(childPos.y) - 2, (int)System.Math.Ceiling(childPos.z) - 1);
             Vector3 accpos = new Vector3((lastPos.x), (lastPos.y) - 2, (lastPos.z) - 1);
 
             if (!(feetpos.getBlock()is Air))
             {
                 if (feetpos.above().getBlock() is Air && child.localPosition.y <= 0.001)
                 {
-                    transform.position = new Vector3(transform.position.x, feetpos.getY() + 2f, transform.position.z);
+                    ownPosition = new Vector3(ownPosition.x, feetpos.getY() + 2f, ownPosition.z);
                     vel.y = gravity * 0.0f;
                 }else
                 if (feetpos.above().above().getBlock() is Air && child.localPosition.y <= 0.001)
                 {
-                    transform.position = new Vector3(transform.position.x, feetpos.getY() + 3f, transform.position.z);
+                    ownPosition = new Vector3(ownPosition.x, feetpos.getY() + 3f, ownPosition.z);
                     vel.y = gravity * 0.0f;
                 }
                 else
@@ -82,7 +86,7 @@ public class MovementController : MonoBehaviour {
 
                     //Debug.DrawRay(transform.position, f, Color.blue, 0.1f);
                     //Debug.DrawRay(transform.position, vel, Color.yellow, 0.1f);
-                    transform.position = lastPos;
+                    ownPosition = lastPos;
                     if (tries < projections.Length)
                     {
                         bool invalid = false;
@@ -96,11 +100,16 @@ public class MovementController : MonoBehaviour {
                                 if (Vector3.Project(projections[tries].normalized, basis).magnitude > 0.01 && Vector3.Project(origVel, Vector3.Project(projections[tries].normalized, basis)).magnitude < 0.01) invalid = true;
                             }
                             tries++;
-                        } while (invalid);
+                        } while (invalid && tries < projections.Length);
 
-                        transform.position = lastPos + temp * Time.deltaTime;
+                        ownPosition = lastPos + temp * Time.deltaTime;
                         vel = temp;
-                    } else return;
+                    }
+                    else
+                    {
+                        //Debug.LogWarning("Out of tries in Movement");
+                        return;
+                    }
 
                     goto check;
                 }
@@ -110,6 +119,7 @@ public class MovementController : MonoBehaviour {
                 }
             }
         }
-        Debug.DrawRay(transform.position, temp);
+        worldParent.transform.position = -ownPosition;
+        Debug.DrawRay(ownPosition, temp);
     }
 }

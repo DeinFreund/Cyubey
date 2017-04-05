@@ -193,10 +193,11 @@ public class Chunk
         isInstantiated = value;
         if (value)
         {
-            empty = ((Transform)UnityEngine.Object.Instantiate(BlockFactory.chunk, size * coords, Quaternion.identity)).gameObject;
+            empty = ((Transform)GameObject.Instantiate(BlockFactory.chunk, size * coords, Quaternion.identity)).gameObject;
+            empty.transform.SetParent(MovementController.worldParent.transform, false);
         }else
         {
-            UnityEngine.Object.Destroy(empty);
+            GameObject.Destroy(empty);
             empty = null;
         }
 

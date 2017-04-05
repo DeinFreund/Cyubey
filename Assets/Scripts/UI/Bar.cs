@@ -23,7 +23,7 @@ public class Bar : MonoBehaviour {
         space = (int)((double)slotSize / 3);
         offsetX = (int)((double)(ParentPanel.rect.width - (slotSize + space) * (bar - 1)) / 2);
 
-        print(width + " " + height + " " + bar);
+        //print(width + " " + height + " " + bar);
 
         buttons = new GameObject[bar];
 

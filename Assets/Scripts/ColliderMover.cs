@@ -45,7 +45,7 @@ public class ColliderMover : MonoBehaviour {
         if (pos.getChunk() == null) return;
         int i = 0;
         //Debug.Log(pos);
-        Position groundpos = null;
+        Position groundpos = new Position();
         foreach (Coordinates norm in dirs){
             if (i == 6) pos = groundpos.above();
             Position npos = pos;

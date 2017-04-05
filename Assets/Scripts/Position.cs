@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-public class Position
+public struct Position
 {
     public readonly int x, y, z;
     private Chunk chunk;

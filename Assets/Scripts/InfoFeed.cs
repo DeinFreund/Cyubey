@@ -2,12 +2,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
+using System.Linq;
 
 public class InfoFeed : MonoBehaviour {
 
     public Transform InfoPanel;
-
-    private List<InfoMessage> toremove = new List<InfoMessage>();
+    
 
     private static List<InfoMessage> feed = new List<InfoMessage>();
 
@@ -15,8 +15,8 @@ public class InfoFeed : MonoBehaviour {
     {
         lock (feed)
         {
+            foreach (InfoMessage msg in feed.Where(x => x.isTimedOut())) GameObject.Destroy(msg.panel);
             feed.RemoveAll(m => m.isTimedOut());
-            toremove.Clear();
             float height = 0;
             foreach (InfoMessage msg in feed)
             {

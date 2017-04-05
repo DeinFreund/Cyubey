@@ -15,6 +15,7 @@ public class World : MonoBehaviour {
     // Use this for initialization
     void Start() {
         terrain.freeLocation(new Coordinates(0,0,0),4, 12);
+        curTime = lastAlive = Time.time;
         Thread thread = new Thread(generateChunks);
         thread.Start();
         ClientNetworkManager.send(TCPMessageID.READY, new Field());
@@ -29,9 +30,16 @@ public class World : MonoBehaviour {
     static int minViewDistance = 1;
     static int preloadDistance = 3;
     static int maxViewDistance = 10;
+    float lastAlive;
+    float curTime;
     // Update is called once per frame
     void Update()
     {
+        curTime = Time.time;
+        if (Time.time - lastAlive > 2)
+        {
+            Debug.LogError("Loading thread died");
+        }
         if (Camera.main == null) return;
         if (initQueue.Count > 0)
         {
@@ -45,8 +53,7 @@ public class World : MonoBehaviour {
         }
         if (Time.time - lastChunkCheck > 1.0)
         {
-            Vector3 campos = Camera.main.transform.position;
-            Coordinates playerPos = new Position((int)System.Math.Ceiling(campos.x), (int)System.Math.Ceiling(campos.y), (int)System.Math.Ceiling(campos.z) -1).getChunkCoordinates();
+            Coordinates playerPos = MovementController.feetPosition.getChunkCoordinates();
             lastChunkCheck = Time.time;
             HashSet<Coordinates> toUnload = new HashSet<Coordinates>();
             foreach (KeyValuePair<Coordinates, Chunk> pair in chunks)
@@ -99,12 +106,14 @@ public class World : MonoBehaviour {
     {
         while (true)
         {
+            //Debug.Log(loadSoon.Count);
+            lastAlive = curTime;
             if (loadSoon.Count > 0)
             {
                 loadChunk(loadSoon.Dequeue(), true);
             }else
             {
-                Thread.Sleep(10);
+                Thread.Sleep(30);
             }
         }
     }
@@ -120,7 +129,10 @@ public class World : MonoBehaviour {
     public static void requestChunkLoad(Coordinates coords)
     {
         if (!loadSoon.Contains(coords) && !chunks.ContainsKey(coords))
-        loadSoon.Enqueue(coords);
+        {
+            //Debug.Log("Loading soon " + coords);
+            loadSoon.Enqueue(coords);
+        }
     }
     public static int getRequestCount()
     {
