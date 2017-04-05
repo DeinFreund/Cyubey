@@ -119,5 +119,9 @@ public class Bar : MonoBehaviour {
             }
             visible = !visible;
         }
+        if (inv.getPick())
+        {
+            inv.getDraging().transform.position = Input.mousePosition;
+        }
     }
 }

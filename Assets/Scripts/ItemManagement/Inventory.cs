@@ -167,11 +167,11 @@ public class Inventory : MonoBehaviour {
             draging.transform.SetAsLastSibling();
             if(id < width * height)
             {
-                canvas[0].transform.SetAsFirstSibling();
+                canvas[0].transform.SetAsLastSibling();
             }
             else
             {
-                canvas[1].transform.SetAsFirstSibling();
+                canvas[1].transform.SetAsLastSibling();
             }
         }
         else if (pickup)
