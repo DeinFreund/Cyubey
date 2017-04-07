@@ -14,6 +14,23 @@ ModelImporter:
     100012: Cube_005
     100014: Block2
     100016: Block3
+    100018: Cube_006
+    100020: Cube_006_MeshPart0
+    100022: Cube_006_MeshPart1
+    100024: Cube_006_MeshPart2
+    100026: Cube_006_MeshPart3
+    100028: Cube_007
+    100030: Cube_007_MeshPart0
+    100032: Cube_007_MeshPart1
+    100034: Cube_007_MeshPart2
+    100036: Cube_007_MeshPart3
+    100038: Cube_007_MeshPart4
+    100040: Cube_007_MeshPart5
+    100042: Icosphere
+    100044: Stone1
+    100046: Stone1_001
+    100048: Stone1_002
+    100050: Stone1_003
     400000: //RootNode
     400002: Cube
     400004: Cube_001
@@ -23,6 +40,23 @@ ModelImporter:
     400012: Cube_005
     400014: Block2
     400016: Block3
+    400018: Cube_006
+    400020: Cube_006_MeshPart0
+    400022: Cube_006_MeshPart1
+    400024: Cube_006_MeshPart2
+    400026: Cube_006_MeshPart3
+    400028: Cube_007
+    400030: Cube_007_MeshPart0
+    400032: Cube_007_MeshPart1
+    400034: Cube_007_MeshPart2
+    400036: Cube_007_MeshPart3
+    400038: Cube_007_MeshPart4
+    400040: Cube_007_MeshPart5
+    400042: Icosphere
+    400044: Stone1
+    400046: Stone1_001
+    400048: Stone1_002
+    400050: Stone1_003
     2300000: Cube
     2300002: Cube_001
     2300004: Cube_002
@@ -31,6 +65,23 @@ ModelImporter:
     2300010: Cube_005
     2300012: Block2
     2300014: Block3
+    2300016: Cube_006_MeshPart0
+    2300018: Cube_006_MeshPart1
+    2300020: Cube_006_MeshPart2
+    2300022: Cube_006_MeshPart3
+    2300024: Cube_007_MeshPart0
+    2300026: Cube_007_MeshPart1
+    2300028: Cube_007_MeshPart2
+    2300030: Cube_007_MeshPart3
+    2300032: Cube_007_MeshPart4
+    2300034: Cube_007_MeshPart5
+    2300036: Icosphere
+    2300038: Cube_006
+    2300040: Cube_007
+    2300042: Stone1
+    2300044: Stone1_001
+    2300046: Stone1_002
+    2300048: Stone1_003
     3300000: Cube
     3300002: Cube_001
     3300004: Cube_002
@@ -39,6 +90,23 @@ ModelImporter:
     3300010: Cube_005
     3300012: Block2
     3300014: Block3
+    3300016: Cube_006_MeshPart0
+    3300018: Cube_006_MeshPart1
+    3300020: Cube_006_MeshPart2
+    3300022: Cube_006_MeshPart3
+    3300024: Cube_007_MeshPart0
+    3300026: Cube_007_MeshPart1
+    3300028: Cube_007_MeshPart2
+    3300030: Cube_007_MeshPart3
+    3300032: Cube_007_MeshPart4
+    3300034: Cube_007_MeshPart5
+    3300036: Icosphere
+    3300038: Cube_006
+    3300040: Cube_007
+    3300042: Stone1
+    3300044: Stone1_001
+    3300046: Stone1_002
+    3300048: Stone1_003
     4300000: Cube_002
     4300002: Cube_001
     4300004: Cube
@@ -47,6 +115,23 @@ ModelImporter:
     4300010: Cube_005
     4300012: Block2
     4300014: Block3
+    4300016: Icosphere
+    4300018: Cube_007_MeshPart0
+    4300020: Cube_007_MeshPart1
+    4300022: Cube_007_MeshPart2
+    4300024: Cube_007_MeshPart3
+    4300026: Cube_007_MeshPart4
+    4300028: Cube_007_MeshPart5
+    4300030: Cube_006_MeshPart0
+    4300032: Cube_006_MeshPart1
+    4300034: Cube_006_MeshPart2
+    4300036: Cube_006_MeshPart3
+    4300038: Cube_007
+    4300040: Cube_006
+    4300042: Stone1_003
+    4300044: Stone1_002
+    4300046: Stone1_001
+    4300048: Stone1
     7400000: Default Take
     9500000: //RootNode
   materials:
@@ -95,6 +180,7 @@ ModelImporter:
   importAnimation: 1
   copyAvatar: 0
   humanDescription:
+    serializedVersion: 2
     human: []
     skeleton: []
     armTwist: 0.5
@@ -105,7 +191,10 @@ ModelImporter:
     legStretch: 0.05
     feetSpacing: 0
     rootMotionBoneName: 
+    rootMotionBoneRotation: {x: 0, y: 0, z: 0, w: 1}
     hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 0
   lastHumanDescriptionAvatarSource: {instanceID: 0}
   animationType: 2
   humanoidOversampling: 1

@@ -77,7 +77,7 @@ public class Block
 
     public virtual int getMeshID(Coordinates coords)
     {
-        return (coords.GetHashCode() % 13 + 13) % 13 % 3;
+        return (coords.GetHashCode() % 13 + 13) % 13 % 4;
     }
 
     public virtual bool isTransparent()

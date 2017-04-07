@@ -183,7 +183,7 @@ public class ChunkDrawer : MonoBehaviour {
             
             foreach (Chunk.Face face in faces)
             {
-                if (Vector3.Dot(c.getCenter() - vecpos, face.getNormal()) < -0.01f && (c.getCenter() - vecpos).magnitude > Chunk.size * 2)
+                if (Vector3.Dot((c.getCenter() - vecpos).normalized, face.getNormal()) < -0.01f && (c.getCenter() - vecpos).magnitude > Chunk.size * 4)
                 {
                     continue;
                 }
