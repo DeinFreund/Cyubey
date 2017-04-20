@@ -100,6 +100,12 @@ public class Inventory : MonoBehaviour {
         if (Input.GetButtonDown("Inventory")) {
             visible = !visible;
             grid.SetVisible(visible);
+
+            if (oldContainer != null && !visible) {
+                oldContainer.GetSlot(oldNo).CopyFrom(holding);
+                holding.EmptySlot();
+                oldContainer = null;
+            }
         }
         if (isHolding) {
             holding.GetTransform().position = Input.mousePosition;
