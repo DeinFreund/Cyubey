@@ -184,6 +184,7 @@ public class ClientNetworkManager
 
     private static void updateBlock(Field message)
     {
+        if (ServerNetworkManager.isServer()) return;
         Position pos = message.getField("pos").getCoordinates();
         Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
         if (pos.getChunk() != null) pos.getChunk().setBlock(pos, block);

@@ -207,7 +207,7 @@ public class Client {
     {
         Position pos = message.getField("pos").getCoordinates();
         Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
-        pos.getChunk().setBlock(pos, block);
+        MainThread.runAction(() => pos.getChunk().setBlock(pos, block));
     }
 
 

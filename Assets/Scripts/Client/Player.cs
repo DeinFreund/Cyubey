@@ -32,12 +32,6 @@ public class Player {
         gameobject.GetComponentInChildren<AudioListener>().enabled = true;
         GameObject grid = GameObject.Find("Grid");
         GameObject bar = GameObject.Find("ItemSelection");
-        grid.GetComponent<Grid>().inv = gameobject.GetComponent<Inventory>();
-        grid.GetComponent<Grid>().Init();
-        grid.GetComponent<Grid>().enabled = true;
-        bar.GetComponent<Bar>().inv = gameobject.GetComponent<Inventory>();
-        bar.GetComponent<Bar>().Init();
-        bar.GetComponent<Bar>().enabled = true;
         gameobject.AddComponent<MousePointer>();
     }
 

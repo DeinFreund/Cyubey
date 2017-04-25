@@ -6,226 +6,120 @@ using System.Collections.Generic;
 public class Inventory : MonoBehaviour {
     
     private ItemDatabase database;
-    public int width;
-    public int height;
-    public int barSize;
-    public Slot[] slots;
-    private GameObject dragedSlot;
-    public Image draging;
-    public bool pickup;
-    public int buffer;
-    private GameObject[] canvas;
-    public bool locked;
+    private Container bar, grid, transfer;
+
+    //layout sizes (better be global)
+    static int margin = 20;
+    static int spacing = 50;
+
+    //pick and drop
+    private Slot holding;
+    private bool isHolding;
     private bool shift;
+
+    //swap vars
+    private Container oldContainer;
+    private int oldNo;
+
+    //inventory lock
+    private bool locked;
+
+    //Visibility
+    private static bool visible;
 
     void Awake ()
     {
-        canvas = GameObject.FindGameObjectsWithTag("Item");
-
-        draging = Instantiate<Image>(Resources.Load<Image>("items/dummy"));
         database = FindObjectOfType<ItemDatabase>();
-        width = 10;
-        height = 4;
-        barSize = 8;
-        slots = new Slot[width * height + barSize];
-        for(int i = 0; i < width * height + barSize; i++)
-        {
-            slots[i] = new Slot();
-        }
-        AddItem(0, 188);
-        AddItem(1, 18);
+        visible = false;
+        holding = new Slot();
+        holding.GetTransform().SetParent(GameObject.FindGameObjectsWithTag("Canvas")[0].transform);
+        holding.GetTransform().SetAsLastSibling();
+
+        bar = new Container(5,1,new Vector2(0.5f,0.025f), this, true);
+        grid = new Container(10, 4, new Vector2(0.5f, 0.7f), this, false);
+        grid.SetVisible(false);
+
+        if (!AddItem(bar, 0, 188) || !AddItem(bar, 1, 18)) Debug.LogError("Noooo");
     }
 
-    void Update()
-    {
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            shift = true;
+    public static bool isVisible() {
+        return visible;
+    }
+
+    public bool ItemTransfer(Container from, Container to, int itemID, int count) {
+        if (!from.Remove(itemID, count) || !to.Add(itemID, count)) return false;
+        from.Redraw();
+        to.Redraw();
+        return true;
+    }
+
+    public bool AddItem(Container c, int itemID, int count) {
+        if (!c.Add(itemID, count)) return false;
+        c.Redraw();
+        return true;
+    }
+
+    public bool RemoveItem(Container c, int itemID, int count) {
+        if (!c.Remove(itemID, count)) return false;
+        c.Redraw();
+        return true;
+    }
+
+    public void Swap(Container c, int no) {
+        Debug.Log(no);
+        if(c.GetSlot(no).getItem() != null && oldContainer == null) {
+            if (shift) {
+                if (c == bar) {
+                    if (!c.MoveTo(no, grid)) Debug.Log("Nein");
+                    return;
+                } else if(c == grid) {
+                    if(!c.MoveTo(no, bar)) Debug.Log("Nein");
+                    return;
+                }
+            } else {
+                oldContainer = c;
+                oldNo = no;
+                holding.CopyFrom(c.GetSlot(no));
+                c.GetSlot(no).EmptySlot();
+                isHolding = true;
+            }
+        } else if (!(oldContainer == c && oldNo == no)) {
+            oldContainer.GetSlot(oldNo).CopyFrom(c.GetSlot(no));
+            c.GetSlot(no).CopyFrom(holding);
+            holding.EmptySlot();
+            oldContainer = null;
+            isHolding = false;
+            c.Redraw();
+            return;
         }
-        else
-        {
+        oldContainer = c;
+        oldNo = no;
+    }
+
+    void Update() {
+        if (Input.GetButtonDown("Inventory")) {
+            visible = !visible;
+            grid.SetVisible(visible);
+
+            if (oldContainer != null && !visible) {
+                oldContainer.GetSlot(oldNo).CopyFrom(holding);
+                holding.EmptySlot();
+                oldContainer = null;
+            }
+        }
+        if (isHolding) {
+            holding.GetTransform().position = Input.mousePosition;
+        }
+        if (Input.GetKey(KeyCode.LeftShift)) {
+            shift = true;
+        } else {
             shift = false;
         }
-    }
 
-    public int AddItem(int id, int amount)
-    {
-        while (locked) ;
-        locked = true;
-        int count = amount;
-        for (int i = 0; i < slots.Length; i++)
-        {
-            if (slots[i].getItem() == null)
-            {
-                if(count > 99)
-                {
-                    slots[i] = new Slot(database.ItemFromID(id), 99);
-                    count -= 99;
-                }
-                else
-                {
-                    slots[i] = new Slot(database.ItemFromID(id), count);
-                    locked = false;
-                    return 0;
-                }
-            }
-            else
-            {
-                if(slots[i].getItem().getID() == id)
-                {
-                    if(slots[i].getCount() + count > 99)
-                    {
-                        slots[i] = new Slot(database.ItemFromID(id), 99);
-                        count -= (99 - slots[i].getCount());
-                    }
-                    else
-                    {
-                        slots[i].addCount(count);
-                        locked = false;
-                        return 0;
-                    }
-                }
-            }
+        if (Input.GetAxis("Mouse ScrollWheel") != 0f) {
+            if (Input.GetAxis("Mouse ScrollWheel") > 0f) bar.ScrollForward();
+            if (Input.GetAxis("Mouse ScrollWheel") < 0f) bar.ScrollBackward();
         }
-        locked = false;
-        return count;
-    }
-
-    public int RemoveItem(int id, int amount)
-    {
-        while (locked) ;
-        locked = true;
-        int count = amount;
-        for (int i = 0; i < slots.Length; i++)
-        {
-            if (slots[i].getItem() != null)
-            {
-                if(slots[i].getItem().getID() == id)
-                {
-                    if(slots[i].getCount() < count)
-                    {
-                        count -= slots[i].getCount();
-                        slots[i] = new Slot();
-                    }
-                    else
-                    {
-                        slots[i].removeCount(count);
-                        return 0;
-                    }
-                }
-            }
-        }
-        locked = false;
-        return count;
-    }
-
-    public int CountItem(int id)
-    {
-        int counter = 0;
-        for(int i = 0; i < width*height + barSize; i++)
-        {
-            if(slots[i].getItem() == database.ItemFromID(id))
-            {
-                counter += slots[i].getCount();
-            }
-        }
-        return counter;
-    }
-
-    public void itemMove(int id)
-    {
-        print(id.ToString());
-        if (!pickup && getSlot(id).getItem() != null)
-        {
-            if (shift)
-            {
-                if(id < width * height)
-                {
-                    for(int i = 0; i < barSize; i++)
-                    {
-                        if(slots[width * height + i].getItem() == null)
-                        {
-                            swapSlot(id, i + width * height);
-                            return;
-                        }
-                    }
-                } else
-                {
-                    for (int i = 0; i < width*height; i++)
-                    {
-                        if (slots[i].getItem() == null)
-                        {
-                            swapSlot(id, i);
-                            return;
-                        }
-                    }
-                }
-            }
-            pickup = true;
-            buffer = id;
-            draging = getSlot(id).getSprite();
-            draging.transform.SetAsLastSibling();
-            if(id < width * height)
-            {
-                canvas[0].transform.SetAsLastSibling();
-            }
-            else
-            {
-                canvas[1].transform.SetAsLastSibling();
-            }
-        }
-        else if (pickup)
-        {
-            pickup = false;
-            swapSlot(buffer, id);
-            draging = null;
-        }
-    }
-
-    public int getBuffer()
-    {
-        return buffer;
-    }
-
-    public Image getDraging()
-    {
-        return draging;
-    }
-
-    public bool getPick()
-    {
-        return pickup;
-    }
-
-    public void setPick(bool val)
-    {
-        pickup = val;
-    }
-
-    public int getWidth()
-    {
-        return width;
-    }
-
-    public int getHeight()
-    {
-        return height;
-    }
-
-    public int getBarSize()
-    {
-        return barSize;
-    }
-
-    public Slot getSlot(int pos)
-    {
-        return slots[pos];
-    }
-
-    public void swapSlot(int from, int to)
-    {
-        Slot buff = slots[to];
-        slots[to] = slots[from];
-        slots[from] = buff;
     }
 }
+    

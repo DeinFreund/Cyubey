@@ -31,6 +31,11 @@ class ChunkSerializer
         memStr.Position = 0;
         BinaryFormatter bf = new BinaryFormatter();
         bool[,,]  blocksModified = (bool[,,])bf.Deserialize(memStr);
+        if (blocksModified.GetLength(0) != Chunk.size || blocksModified.GetLength(1) != Chunk.size || blocksModified.GetLength(2) != Chunk.size)
+        {
+            Debug.LogError("Corrupt save, resetting chunk");
+            return new bool[Chunk.size, Chunk.size, Chunk.size];
+        }
         for (int sx = 0; sx < Chunk.size; sx++)
             for (int sy = 0; sy < Chunk.size; sy++)
                 for (int sz = 0; sz < Chunk.size; sz++)

@@ -65,16 +65,17 @@ public class Chunk
                     }
                 }
             }
+            recalculateFaceConnections();
         }
         if (!ServerNetworkManager.isServer())
         {
             ClientNetworkManager.requestChunk(getCoordinates());
         }else
         {
-
+            ChunkManager.RequestChunkLoad(this);
         }
-            //Profiler.EndSample();
-            //Debug.Log("Generated chunk at " + coords.ToString());
+        //Profiler.EndSample();
+        //Debug.Log("Generated chunk at " + coords.ToString());
     }
 
     //call after chunk has been constructed
@@ -84,8 +85,6 @@ public class Chunk
         Profiler.BeginSample("Initializing chunks");
         setInstantiated(true);
 
-        recalculateFaceConnections();
-        rebuildMesh();
         Profiler.EndSample();
     }
 
@@ -94,9 +93,11 @@ public class Chunk
         if (blocks == null) return;
         lock (blocks)
         {
+            Profiler.BeginSample("Loading chunks");
             blocksModified = ChunkSerializer.deserializeBlocks(blocks, data);
             untouchedChunk = blocks.Length == 0;
             loaded = true;
+            //Debug.Log("Loaded Chunk at " + coords);
             foreach (KeyValuePair<Position, Block> pair in setBlockQueue)
             {
                 setBlock(pair.Key, pair.Value, false);
@@ -104,7 +105,12 @@ public class Chunk
             if (!untouchedChunk)
             {
                 recalculateFaceConnections();
+                if (isInstantiated)
+                {
+                    rebuildMesh();
+                }
             }
+            Profiler.EndSample();
         }
     }
 
@@ -239,7 +245,10 @@ public class Chunk
         {
             empty = ((Transform)GameObject.Instantiate(BlockFactory.chunk, size * coords, Quaternion.identity)).gameObject;
             empty.transform.SetParent(MovementController.worldParent.transform, false);
-        }else
+
+            rebuildMesh();
+        }
+        else
         {
             GameObject.Destroy(empty);
             empty = null;
@@ -311,12 +320,19 @@ public class Chunk
             setBlockQueue.Enqueue(new KeyValuePair<Position, Block>(p, b));
             return;
         }
-        Debug.Log("Updating block at " + p);
+        Debug.Log("Updating block at " + p.getRelativeCoords() + " (" + p +")");
         ServerNetworkManager.updateBlock(p, b);
-        blocksModified[p.getX(), p.getY(), p.getZ()] = true;
+        blocksModified[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = true;
         untouchedChunk = false;
-        blocks[p.getX(), p.getY(), p.getZ()] = b;
-        if (recalculateConnections) recalculateFaceConnections();
+        blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = b;
+        if (recalculateConnections)
+        {
+            recalculateFaceConnections();
+            if (isInstantiated)
+            {
+                rebuildMesh();
+            }
+        }
     }
     List<Face> _faces;
 
@@ -330,7 +346,7 @@ public class Chunk
         _faces = new List<Face>(faces);
 
 
-        Profiler.BeginSample("Recalculating Face Connections");
+        //Profiler.BeginSample("Recalculating Face Connections");
         HashSet<Face> faceset = new HashSet<Face>();
         int locX, locY, locZ, i;
         for (int sx = 0; sx < size; sx++)
@@ -371,11 +387,7 @@ public class Chunk
                         }
                     }
                 }
-        foreach (Face f in faces)
-        {
-            //Debug.Log(f.connectedFaces.Count + " connections");
-        }
-        Profiler.EndSample();
+        //Profiler.EndSample();
 
 
     }

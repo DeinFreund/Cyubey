@@ -151,9 +151,11 @@ public class Field//handles section of files
 	//returns first field with specified name
 	//if no such field a new one is created and returned
 	public Field atField(string name){
-	
-		if (getField(name) != null) return getField(name);
-		return addField(name);
+
+        List<Field> arr = getFields(name);
+        if (arr.Count > 0)
+            return arr[0];
+        return addField(name);
 	}
 	
 	public List<Field> getFields(string name){

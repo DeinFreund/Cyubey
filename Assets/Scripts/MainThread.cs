@@ -5,8 +5,8 @@ using UnityEngine;
 
 public class MainThread : MonoBehaviour {
 
-    public static ConcurrentQueue<Action> events = new ConcurrentQueue<Action>();
-    public static ConcurrentQueue<Action> eventsSoon = new ConcurrentQueue<Action>();
+    private static ConcurrentQueue<Action> events = new ConcurrentQueue<Action>();
+    private static ConcurrentQueue<Action> eventsSoon = new ConcurrentQueue<Action>();
 
     public static void runAction(Action action)
     {

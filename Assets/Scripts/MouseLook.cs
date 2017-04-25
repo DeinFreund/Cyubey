@@ -37,10 +37,10 @@ public class MouseLook : MonoBehaviour
             lockCursor = !lockCursor;
         }
         // Ensure the cursor is always locked when set
-        Cursor.lockState = (lockCursor && !Grid.isVisible()) ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible = !(lockCursor && !Grid.isVisible());
+        Cursor.lockState = (lockCursor && !Inventory.isVisible()) ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = !(lockCursor && !Inventory.isVisible());
 
-        if (Grid.isVisible())
+        if (Inventory.isVisible())
         {
             return;
         }
