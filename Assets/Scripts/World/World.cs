@@ -6,19 +6,25 @@ using System.Threading;
 using System.Runtime.CompilerServices;
 using UnityEngine.Networking.NetworkSystem;
 using UnityEngine.Profiling;
+using System.Linq;
 
 public class World : MonoBehaviour {
 
     static readonly LocationFreer terrain = new LocationFreer(
         new LayerBlender(
-            new Layer(new Bias(new Perlin(42, new float[]{0.5f, 2f}, 4), 0.58f), -1),
+            new Layer(new Bias(new Perlin(42, new float[] { 0.5f, 2f }, 4), 0.58f), -1),
             new Layer(new Perlin(42, new float[] { 0.05f, 0.1f, 0.2f, 0.5f }, 4), 0)
         ));
     protected static Dictionary<Coordinates, Chunk> chunks = new Dictionary<Coordinates, Chunk>();
+    
+    void Awake()
+    {
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(Chunk).TypeHandle);
+    }
 
     // Use this for initialization
     void Start() {
-        terrain.freeLocation(new Coordinates(0,0,0),4, 12);
+        terrain.freeLocation(new Coordinates(0, 0, 0), 4, 12);
         curTime = lastAlive = Time.time;
         Thread thread = new Thread(generateChunks);
         thread.Start();
@@ -26,8 +32,8 @@ public class World : MonoBehaviour {
     }
 
     static ConcurrentQueue<Coordinates> loadSoon = new ConcurrentQueue<Coordinates>();
-    static ConcurrentQueue<Chunk> initQueue = new ConcurrentQueue<Chunk>();
     static ConcurrentQueue<Coordinates> loadAsap = new ConcurrentQueue<Coordinates>();
+    static HashSet<Coordinates> loadingChunks = new HashSet<Coordinates>();
 
     float lastChunkCheck = -2;
     float lastLoadSoon = -2;
@@ -45,19 +51,6 @@ public class World : MonoBehaviour {
             Debug.LogError("Loading thread died");
         }
         if (Camera.main == null) return;
-        Chunk toInit;
-        if (initQueue.TryDequeue(out toInit))
-        {
-            lock (chunks)
-            {
-                lastLoadSoon = Time.time;
-                if (!chunks.ContainsKey(toInit.getCoordinates()))
-                {
-                    chunks.Add(toInit.getCoordinates(), toInit);
-                    toInit.init();
-                }
-            }
-        }
         if (Time.time - lastChunkCheck > 1.0)
         {
             lock (chunks)
@@ -77,24 +70,6 @@ public class World : MonoBehaviour {
                 {
                     unloadChunk(coords);
                 }
-
-                //HashSet<Coordinates> loaded = new HashSet<Coordinates>();
-                for (int x = playerPos.getX() - minViewDistance; x <= playerPos.getX() + minViewDistance; x++)
-                {
-                    for (int y = playerPos.getY() - minViewDistance; y <= playerPos.getY() + minViewDistance; y++)
-                    {
-                        for (int z = playerPos.getZ() - minViewDistance; z <= playerPos.getZ() + minViewDistance; z++)
-                        {
-                            Coordinates coords = new Coordinates(x, y, z);
-                            if (coords.distanceTo(playerPos) <= minViewDistance + 0.0001f && !chunks.ContainsKey(coords))
-                            {
-                                loadChunk(coords, false);
-                                //return; //one chunk at a time
-                                //loaded.Add(coords);
-                            }
-                        }
-                    }
-                }//HashSet<Coordinates> loaded = new HashSet<Coordinates>();
                 for (int x = playerPos.getX() - preloadDistance; x <= playerPos.getX() + preloadDistance; x++)
                 {
                     for (int y = playerPos.getY() - preloadDistance; y <= playerPos.getY() + preloadDistance; y++)
@@ -124,19 +99,19 @@ public class World : MonoBehaviour {
                 Coordinates toLoad;
                 if (loadSoon.TryDequeue(out toLoad))
                 {
-                    loadChunk(toLoad, true);
+                    loadChunk(toLoad);
                 }
                 else
                 {
                     Thread.Sleep(30);
                 }
-            }catch(Exception ex)
+            } catch (Exception ex)
             {
                 Debug.LogError("Exception in generateChunks: " + ex);
             }
         }
     }
-    
+
     public static int getMinViewDistance()
     {
         return minViewDistance;
@@ -144,6 +119,14 @@ public class World : MonoBehaviour {
     public static int getMaxViewDistance()
     {
         return maxViewDistance;
+    }
+    public static void registerChunk(Coordinates coords, Chunk chunk)
+    {
+        lock (chunks)
+        {
+            loadingChunks.Remove(coords);
+            chunks[coords] = chunk;
+        }
     }
     public static void requestChunkLoad(Coordinates coords)
     {
@@ -177,37 +160,21 @@ public class World : MonoBehaviour {
             return chunks[coords];
         }
     }
-
-    public static Dictionary<Coordinates, Chunk>.ValueCollection getChunks()
+    
+    //needs locking!
+    public static Dictionary<Coordinates, Chunk> getChunks()
     {
-        lock (chunks)
-        {
-            return chunks.Values;
-        }
+        return chunks;
     }
-
-    [MethodImpl(MethodImplOptions.Synchronized)]
-    private static void loadChunk(Coordinates coords, bool slow)
+    
+    private static void loadChunk(Coordinates coords)
     {
         lock (chunks)
         {
             if (chunks.ContainsKey(coords)) return;
-            foreach (Chunk c in initQueue)
-            {
-                if (c.getCoordinates().Equals(coords)) return;
-            }
-            //Debug.Log("Loading Chunk at " + coords.ToString());
-            if (!slow) Profiler.BeginSample("Loading Chunks");
-            if (!slow)
-            {
-                chunks.Add(coords, new Chunk(coords, terrain));
-                chunks[coords].init();
-            }
-            else
-            {
-                initQueue.Enqueue(new Chunk(coords, terrain));
-            }
-            if (!slow) Profiler.EndSample();
+            if (loadingChunks.Contains(coords)) return;
+            loadingChunks.Add(coords);
+            new Chunk(coords, terrain);
         }
     }
 

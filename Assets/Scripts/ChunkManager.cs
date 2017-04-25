@@ -4,6 +4,8 @@ using UnityEngine;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using UnityEngine.Profiling;
 
 public class ChunkManager
 {
@@ -11,7 +13,13 @@ public class ChunkManager
     private int size;
     private string path;
 
+    private static ConcurrentQueue<FSTask> tasks = new ConcurrentQueue<FSTask>();
     private static ChunkManager singleton = new ChunkManager(16, "saves");
+
+    static ChunkManager() {
+        Thread worker = new Thread(ProcessTasks);
+        worker.Start();
+    }
 
     //path has to be without trailing slash
     private ChunkManager(int size, string path)
@@ -25,27 +33,59 @@ public class ChunkManager
         }
     }
 
-    public static void RequestChunkSave(Coordinates pos, byte[] data)
+    private static void ProcessTasks()
     {
-        //Can be later optimized to batch saves of nearby chunks
-        singleton.SaveChunk(pos, data);
+        while (true)
+        {
+
+            try
+            {
+                FSTask task;
+                if (tasks.TryDequeue(out task))
+                {
+                    if (task.chunkdata != null)
+                    {
+                        singleton.SaveChunk(task.chunk, task.chunkdata);
+                    }else if (!task.chunk.isLoaded())
+                    {
+                        singleton.LoadChunk(task.chunk);
+                    }
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("Exception in ProcessTasks: " + ex);
+            }
+        }
     }
 
-    private void SaveChunk(Coordinates position, byte[] chunkdata)
+    public static void RequestChunkSave(Chunk chunk, byte[] data)
+    {
+        //Can be later optimized to batch saves of nearby chunks
+        tasks.Enqueue(new FSTask(chunk, data));
+    }
+
+    private void SaveChunk(Chunk chunk, byte[] chunkdata)
     {
 
-        string xs = Math.Floor((double)position.x / size).ToString();
-        string ys = Math.Floor((double)position.y / size).ToString();
-        string zs = Math.Floor((double)position.z / size).ToString();
 
-        int pos = ((position.x % size + size) % size) + (size * ((position.x % size + size) % size)) + (size * size * ((position.x % size + size) % size));
+        int bx = div_floor(chunk.getX(), size);
+        int by = div_floor(chunk.getY(), size);
+        int bz = div_floor(chunk.getZ(), size);
+        string file = path + "/" + bx + "_" + by + "_" + bz + ".region";
+
+        int pos = ((chunk.getX() % size + size) % size) + (size * ((chunk.getY() % size + size) % size)) + (size * size * ((chunk.getZ() % size + size) % size));
         byte[] prev;
         byte[] result;
         int space = 0;
         int oldLength;
         int newLength = chunkdata.Length;
 
-        if (!File.Exists(path + "/" + xs + ys + zs))
+        if (!File.Exists(file))
         {
             result = new byte[(size * size * size * 4) + newLength];
 
@@ -53,7 +93,7 @@ public class ChunkManager
         }
         else
         {
-            prev = File.ReadAllBytes(path + "/" + xs + ys + zs);
+            prev = File.ReadAllBytes(file);
 
             for (int i = 0; i < pos; i++)
             {
@@ -86,111 +126,74 @@ public class ChunkManager
             result[space + i + 4] = chunkdata[i];
         }
 
-        File.WriteAllBytes(path + "/" + xs + ys + zs, result);
+        File.WriteAllBytes(file, result);
     }
 
     public static void RequestChunkLoad(Chunk chunk)
     {
         //Can be optimized to load nearby chunks as well to reduce FS load
-        MainThread.runSoon(() => chunk.deserialize(singleton.LoadChunk(chunk.getX(), chunk.getY(), chunk.getZ())));
+        tasks.Enqueue(new FSTask(chunk, null));
     }
+    
+    private static byte[] buffer = new byte[4096];
+    private static byte[] intbuf = new byte[4];
 
-    private byte[] LoadChunk(int x, int y, int z)
+    private void LoadChunk(Chunk chunk)
     {
-        //find file
-        string xs = Math.Floor((double)x / (double)size).ToString();
-        string ys = Math.Floor((double)y / (double)size).ToString();
-        string zs = Math.Floor((double)z / (double)size).ToString();
-        int chunkLength;
-        int pos = ((x % size + size) % size) + (size * ((y % size + size) % size)) + (size * size * ((z % size + size) % size));
-
-        if (!File.Exists(path + "/" + xs + ys + zs))
+        /*
+        MainThread.runAction(() =>
         {
-            //Debug.LogError("No region file " + xs + " " + ys + " " + zs + " for this chunk");
-            //Expected behaviour..
-            return new byte[0];
+        Profiler.BeginSample("LoadChunk");
+        //*/
+
+        int bx = div_floor(chunk.getX(), size);
+        int by = div_floor(chunk.getY(), size);
+        int bz = div_floor(chunk.getZ(), size);
+        string file = path + "/" + bx + "_" + by + "_" + bz + ".region";
+        if (!File.Exists(file))
+        {
+            chunk.deserialize(buffer, 0);
+            return;
         } //Region does not exist
 
-        byte[] bytes = File.ReadAllBytes(path + "/" + xs + ys + zs);
-
-        int space = 0;
-        for (int i = 0; i < pos; i++)
+        using (Stream source = File.OpenRead(file))
         {
-            space += BitConverter.ToInt32(bytes, space) + 4;
+            int chunkLength;
+            Chunk c;
+            for (int pos = 0; pos < size * size * size; pos++)
+            {
+                source.Read(intbuf, 0, intbuf.Length);
+                chunkLength = BitConverter.ToInt32(intbuf, 0);
+                source.Read(buffer, 0, chunkLength);
+                c = World.getChunk(new Coordinates(pos % size, (pos / size) % size, pos / (size * size)));
+                if (c != null && !c.isLoaded()) c.deserialize(buffer, chunkLength);
+            }
         }
-
-        chunkLength = BitConverter.ToInt32(bytes, space);
-        if (chunkLength == 0)
-        {
-            //Debug.LogError("No chunk at position " + x.ToString() + " " + y.ToString() + " " + z.ToString());
-            //Expected behaviour..
-            return new byte[0];
-        } // no chunk saved here
-
-        byte[] chunk = new byte[chunkLength];
-        for (int i = 0; i < chunkLength; i++)
-        {
-            chunk[i] = bytes[space + 4 + i];
-        }
-
-        return chunk;
+            /*
+            Profiler.EndSample();
+        });
+        while (!chunk.isLoaded()) Thread.Sleep(50);
+        //*/
     }
 
-    //should probably use unit tests for this..
-    public static void Test()
+
+    private static int div_floor(int x, int y)
     {
-        //magic test
-        ChunkManager test1 = new ChunkManager(2, "chunks/for/me");
-        test1.SaveChunk(new Coordinates(0, -1, 0), new byte[] { 21, 53 });
-        test1.LoadChunk(0, -1, 0);
+        int q = x / y;
+        int r = x % y;
+        if ((r != 0) && ((r < 0) != (y < 0))) --q;
+        return q;
+    }
 
-        //Chunk saving and loading test
-        ChunkManager test = new ChunkManager(16, "Chunks");
-        int err = 0;
-        int cnt = 300;
-        Vector3[] co = new Vector3[cnt];
-        byte[][] chunks = new byte[cnt][];
-        byte[][] saved = new byte[cnt][];
+    private struct FSTask
+    {
+        public readonly byte[] chunkdata;
+        public readonly Chunk chunk;
 
-        for (int i = 0; i < cnt; i++)
+        public FSTask(Chunk chunk, byte[] data)
         {
-            co[i] = UnityEngine.Random.insideUnitSphere * 50;
-            int bytes = (int)Mathf.Ceil(UnityEngine.Random.value * cnt);
-            chunks[i] = new byte[bytes];
-            for (int j = 0; j < bytes; j++)
-            {
-                chunks[i][j] = (byte)(UnityEngine.Random.value * 255);
-            }
+            this.chunk = chunk;
+            chunkdata = data;
         }
-        for (int i = 0; i < cnt; i++)
-        {
-            test.SaveChunk(new Coordinates((int)co[i].x, (int)co[i].y, (int)co[i].z), chunks[i]);
-        }
-
-        for (int i = 0; i < cnt; i++)
-        {
-            saved[i] = test.LoadChunk((int)co[i].x, (int)co[i].y, (int)co[i].z);
-        }
-
-        for (int i = 0; i < cnt; i++)
-        {
-            if (!Enumerable.SequenceEqual(chunks[i], saved[i]))
-            {
-
-                string a = "";
-                for (int j = 0; j < chunks[i].Length; j++)
-                {
-                    a += chunks[i][j].ToString() + " ";
-                }
-                a += " expected, but got ";
-                for (int j = 0; j < chunks[i].Length; j++)
-                {
-                    a += saved[i][j].ToString() + " ";
-                }
-                Debug.LogError(a);
-                err++;
-            }
-        }
-        Debug.Log("Load errors:" + err);
     }
 }

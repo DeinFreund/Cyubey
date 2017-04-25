@@ -15,7 +15,7 @@ public class Chunk
     protected IGenerator perlin;
     protected List<Face> faces = new List<Face>();
     protected Block[,,] blocks = null;
-    protected bool[,,] blocksModified = null;
+    protected BitArray[,] blocksModified = null;
     protected bool untouchedChunk = true;
     protected GameObject empty;
     protected readonly Position centerpos;
@@ -47,26 +47,6 @@ public class Chunk
 
     public void generate()
     {
-        //Profiler.BeginSample("Initializing block array");
-        blocks = new Block[size, size, size];
-        lock (blocks)
-        {
-            blocksModified = new bool[size, size, size];
-            //Profiler.EndSample();
-            //Profiler.BeginSample("Generating chunks");
-            int x, y, z;
-            for (x = 0; x < size; x++)
-            {
-                for (y = 0; y < size; y++)
-                {
-                    for (z = 0; z < size; z++)
-                    {
-                        blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
-                    }
-                }
-            }
-            recalculateFaceConnections();
-        }
         if (!ServerNetworkManager.isServer())
         {
             ClientNetworkManager.requestChunk(getCoordinates());
@@ -74,44 +54,59 @@ public class Chunk
         {
             ChunkManager.RequestChunkLoad(this);
         }
-        //Profiler.EndSample();
-        //Debug.Log("Generated chunk at " + coords.ToString());
     }
+    
 
-    //call after chunk has been constructed
-    public void init()
+    public void deserialize(byte[] data, int length)
     {
-
-        Profiler.BeginSample("Initializing chunks");
-        setInstantiated(true);
-
-        Profiler.EndSample();
-    }
-
-    public void deserialize(byte[] data)
-    {
-        if (blocks == null) return;
+        if (blocks == null) blocks = new Block[size, size, size];
         lock (blocks)
         {
-            Profiler.BeginSample("Loading chunks");
-            blocksModified = ChunkSerializer.deserializeBlocks(blocks, data);
-            untouchedChunk = blocks.Length == 0;
-            loaded = true;
+            //Profiler.BeginSample("Loading chunks");
+            blocksModified = ChunkSerializer.deserializeBlocks(blocks, data, length);
+
+            int x, y, z;
+            for (x = 0; x < size; x++)
+            {
+                for (y = 0; y < size; y++)
+                {
+                    if (blocksModified == null || blocksModified[x, y] == null)
+                    {
+                        for (z = 0; z < size; z++)
+                        {
+                            blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
+                        }
+                    }
+                    else if (blocksModified[x, y] != null)
+                    {
+                        for (z = 0; z < size; z++)
+                        {
+                            if (!blocksModified[x, y][z])
+                            {
+                                blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            untouchedChunk = length == 0;
             //Debug.Log("Loaded Chunk at " + coords);
             foreach (KeyValuePair<Position, Block> pair in setBlockQueue)
             {
                 setBlock(pair.Key, pair.Value, false);
             }
-            if (!untouchedChunk)
-            {
-                recalculateFaceConnections();
-                if (isInstantiated)
-                {
-                    rebuildMesh();
-                }
-            }
-            Profiler.EndSample();
+            recalculateFaceConnections();
+            MainThread.instantiateChunk(this);
+            loaded = true;
+            World.registerChunk(getCoordinates(), this);
+            //Profiler.EndSample();
         }
+    }
+
+    public bool isLoaded()
+    {
+        return loaded;
     }
 
     public byte[] serialize()
@@ -136,12 +131,13 @@ public class Chunk
     private static int[] meshes = new int[size * size * size];
     private static Vector3[] positions = new Vector3[size * size * size];
     private static CombineInstance[] combine = new CombineInstance[size * size * size / 2];
+    private static Mesh nothing = new Mesh();
     public void rebuildMesh()
     {
 
-        Profiler.BeginSample("Building chunk mesh");
+        //Profiler.BeginSample("Building chunk mesh");
         
-        Profiler.BeginSample("Reading meshes");
+        //Profiler.BeginSample("Reading meshes");
         int count = 0;
         for (int x = 0; x < size; x++)
         {
@@ -158,24 +154,23 @@ public class Chunk
                 }
             }
         }
-        Profiler.EndSample();
-        Profiler.BeginSample("Combining meshes");
+        //Profiler.EndSample();
+        //Profiler.BeginSample("Combining meshes");
         Matrix4x4 transform = new Matrix4x4();
         Vector4 vec4 = new Vector4();
-        Mesh nothing = new Mesh();
         for (int i = 0; i < count; i++)
         {
             combine[i].mesh = BlockFactory.blockmesh[meshes[i]];
-            vec4.Set(((3 * i + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + ((3 * i + 7) % 5 % 2) - 1);
+            vec4.Set(((3 * positions[i].z + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + ((3 * positions[i].z + 7) % 5 % 2) - 1);
             //vec4.Set(-1, 0, 0, positions[i].x + 1);
             //Debug.Log(new Vector4(((3 * i + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + 1 - ((3 * i + 7) % 5 % 2)));
             //vec4.Set(1, 0, 0, positions[i].x);
             transform.SetRow(0, vec4);
             //vec4.Set(0, 1, 0, positions[i].y);
-            vec4.Set(0, ((17 * i + 11) % 7 % 2) * 2 - 1, 0, positions[i].y + 1 - ((17 * i + 11) % 7 % 2));
+            vec4.Set(0, ((17 * positions[i].x + 11) % 7 % 2) * 2 - 1, 0, positions[i].y + 1 - ((17 * positions[i].x + 11) % 7 % 2));
             transform.SetRow(1, vec4);
             //vec4.Set(0, 0, 1, positions[i].z);
-            vec4.Set(0, 0, ((29 * i + 97) % 11 % 2) * 2 - 1, positions[i].z + 1 - ((29 * i + 97) % 11 % 2));
+            vec4.Set(0, 0, ((29 * positions[i].x + 97) % 11 % 2) * 2 - 1, positions[i].z + 1 - ((29 * positions[i].x + 97) % 11 % 2));
             transform.SetRow(2, vec4);
             vec4.Set(0, 0, 0, 1);
             transform.SetRow(3, vec4);
@@ -185,16 +180,16 @@ public class Chunk
         {
             combine[i].mesh = nothing;
         }
-        Profiler.EndSample();
-        Profiler.BeginSample("Applying mesh");
+        //Profiler.EndSample();
+        //Profiler.BeginSample("Applying mesh");
         empty.GetComponent<MeshFilter>().mesh = new Mesh();
         empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
         //empty.GetComponent<MeshFilter>().mesh.Optimize();
         //empty.GetComponent<MeshCollider>().sharedMesh = empty.GetComponent<MeshFilter>().mesh;
         empty.SetActive(false);
         empty.SetActive(true);
-        Profiler.EndSample();
-        Profiler.EndSample();
+        //Profiler.EndSample();
+        //Profiler.EndSample();
     }
 
     private Color debugColor;
@@ -239,22 +234,26 @@ public class Chunk
         //Debug.DrawLine(Camera.main.transform.position, new Position(0, 0, 0, this).offset(size / 2, size / 2, size / 2), value ? Color.green : Color.red, 0.017f);
         if (value == isInstantiated) return;
 
-        Profiler.BeginSample("Updating chunk instantiation");
-        isInstantiated = value;
-        if (value)
-        {
-            empty = ((Transform)GameObject.Instantiate(BlockFactory.chunk, size * coords, Quaternion.identity)).gameObject;
-            empty.transform.SetParent(MovementController.worldParent.transform, false);
 
-            rebuildMesh();
-        }
-        else
+        MainThread.runAction(() =>
         {
-            GameObject.Destroy(empty);
-            empty = null;
-        }
+            Profiler.BeginSample("Updating chunk instantiation");
+            isInstantiated = value;
+            if (value)
+            {
+                empty = ((Transform)GameObject.Instantiate(BlockFactory.chunk, size * coords, Quaternion.identity)).gameObject;
+                empty.transform.SetParent(MovementController.worldParent.transform, false);
 
-        Profiler.EndSample();
+                rebuildMesh();
+            }
+            else
+            {
+                GameObject.Destroy(empty);
+                empty = null;
+            }
+
+            Profiler.EndSample();
+        });
     }
 
     public int getXOffset()
@@ -320,17 +319,28 @@ public class Chunk
             setBlockQueue.Enqueue(new KeyValuePair<Position, Block>(p, b));
             return;
         }
-        Debug.Log("Updating block at " + p.getRelativeCoords() + " (" + p +")");
-        ServerNetworkManager.updateBlock(p, b);
-        blocksModified[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = true;
-        untouchedChunk = false;
-        blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = b;
-        if (recalculateConnections)
+        lock (blocks)
         {
-            recalculateFaceConnections();
-            if (isInstantiated)
+            Debug.Log("Updating block at " + p.getRelativeCoords() + " (" + p + ")");
+            ServerNetworkManager.updateBlock(p, b);
+            if (blocksModified == null)
             {
-                rebuildMesh();
+                blocksModified = new BitArray[size, size];
+            }
+            if (blocksModified[p.getRelativeX(), p.getRelativeY()] == null)
+            {
+                blocksModified[p.getRelativeX(), p.getRelativeY()] = new BitArray(size);
+            }
+            blocksModified[p.getRelativeX(), p.getRelativeY()][p.getRelativeZ()] = true;
+            untouchedChunk = false;
+            blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = b;
+            if (recalculateConnections)
+            {
+                recalculateFaceConnections();
+                if (isInstantiated)
+                {
+                    rebuildMesh();
+                }
             }
         }
     }
@@ -339,54 +349,58 @@ public class Chunk
     private static Stack<int> stk = new Stack<int>(10000);
     public void recalculateFaceConnections()
     {
-        bool[,,] visited = new bool[size, size, size];
-        foreach (Face f in faces) {
-            f.connectedFaces = new HashSet<Face>();
-        }
-        _faces = new List<Face>(faces);
+        lock (stk)
+        {
+            bool[,,] visited = new bool[size, size, size];
+            foreach (Face f in faces)
+            {
+                f.connectedFaces = new HashSet<Face>();
+            }
+            _faces = new List<Face>(faces);
 
 
-        //Profiler.BeginSample("Recalculating Face Connections");
-        HashSet<Face> faceset = new HashSet<Face>();
-        int locX, locY, locZ, i;
-        for (int sx = 0; sx < size; sx++)
-            for (int sy = 0; sy < size; sy++)
-                for (int sz = 0; sz < size; sz++)
-                {
-                    if (visited[sx, sy, sz]) continue;
-                    if (!getBlock(sx, sy, sz).isTransparent()) continue;
-                    stk.Clear();
-                    stk.Push(sx | (sy << 8) | (sz << 16));
-                    faceset.Clear();
-                    while (stk.Count > 0)
+            //Profiler.BeginSample("Recalculating Face Connections");
+            HashSet<Face> faceset = new HashSet<Face>();
+            int locX, locY, locZ, i;
+            for (int sx = 0; sx < size; sx++)
+                for (int sy = 0; sy < size; sy++)
+                    for (int sz = 0; sz < size; sz++)
                     {
-                        locX = (stk.Peek() & 0x0000FF) >> 0;
-                        locY = (stk.Peek() & 0x00FF00) >> 8;
-                        locZ = (stk.Peek() & 0xFF0000) >> 16;
-                        stk.Pop();
-
-                        if ((locX >= size || locY >= size || locZ >= size) || (locX < 0 || locY < 0 || locZ < 0)) continue;
-                        if (visited[locX, locY, locZ]) continue;
-                        if (!getBlock(locX, locY, locZ).isTransparent()) continue;
-
-                        visited[locX, locY, locZ] = true;
-                        for (i = 0; i < faces.Count; i++)
+                        if (visited[sx, sy, sz]) continue;
+                        if (!getBlock(sx, sy, sz).isTransparent()) continue;
+                        stk.Clear();
+                        stk.Push(sx | (sy << 8) | (sz << 16));
+                        faceset.Clear();
+                        while (stk.Count > 0)
                         {
-                            if (faces[i].isFaceBlock(locX, locY, locZ))
+                            locX = (stk.Peek() & 0x0000FF) >> 0;
+                            locY = (stk.Peek() & 0x00FF00) >> 8;
+                            locZ = (stk.Peek() & 0xFF0000) >> 16;
+                            stk.Pop();
+
+                            if ((locX >= size || locY >= size || locZ >= size) || (locX < 0 || locY < 0 || locZ < 0)) continue;
+                            if (visited[locX, locY, locZ]) continue;
+                            if (!getBlock(locX, locY, locZ).isTransparent()) continue;
+
+                            visited[locX, locY, locZ] = true;
+                            for (i = 0; i < faces.Count; i++)
                             {
-                                faceset.Add(faces[i]);
+                                if (faces[i].isFaceBlock(locX, locY, locZ))
+                                {
+                                    faceset.Add(faces[i]);
+                                }
+                                stk.Push((locX + faces[i].nX) | ((locY + faces[i].nY) << 8) | ((locZ + faces[i].nZ) << 16));
                             }
-                            stk.Push((locX + faces[i].nX) | ((locY + faces[i].nY) << 8) | ((locZ + faces[i].nZ) << 16));
                         }
-                    }
-                    foreach (Face f1 in faceset)
-                    {
-                        foreach (Face f2 in faceset)
+                        foreach (Face f1 in faceset)
                         {
-                            f1.connectedFaces.Add(f2);
+                            foreach (Face f2 in faceset)
+                            {
+                                f1.connectedFaces.Add(f2);
+                            }
                         }
                     }
-                }
+        }
         //Profiler.EndSample();
 
 

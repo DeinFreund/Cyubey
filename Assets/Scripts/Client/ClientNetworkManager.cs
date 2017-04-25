@@ -177,7 +177,7 @@ public class ClientNetworkManager
             Coordinates coords = new Coordinates(chunkData.x, chunkData.y, chunkData.z);
             Debug.Log("Received chunk " + coords);
             receivedChunks.Add(coords);
-            if (World.getChunk(coords) != null) World.getChunk(coords).deserialize(chunkData.chunkData);
+            if (World.getChunk(coords) != null) World.getChunk(coords).deserialize(chunkData.chunkData, chunkData.chunkData.Length);
             else Debug.Log("Received chunk " + coords + " not loaded");
         }
     }
@@ -187,7 +187,7 @@ public class ClientNetworkManager
         if (ServerNetworkManager.isServer()) return;
         Position pos = message.getField("pos").getCoordinates();
         Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
-        if (pos.getChunk() != null) pos.getChunk().setBlock(pos, block);
+        if (pos.getChunk() != null) MainThread.runAction(() => pos.getChunk().setBlock(pos, block));
     }
 
     public static void setBlock(Position pos, Block block)

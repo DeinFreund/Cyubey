@@ -222,22 +222,25 @@ public class ChunkDrawer : MonoBehaviour {
             toCamMatrix = Camera.main.worldToCameraMatrix;
             invisibleChunks.Clear();
             //startchunks.Add(pos.getChunk());
-            foreach (Chunk c in World.getChunks())
+            lock (World.getChunks())
             {
-                invisibleChunks.Add(c);
-                if (enableDebugColors) c.setDebugColor(Color.yellow);
-                if (((Coordinates)c.getCenter()).distanceTo(pos) < 1.1 * Chunk.size)
+                foreach (Chunk c in World.getChunks().Values)
                 {
-                    Chunk c2 = c;
-                    Chunk.Face best = c2.getFaces()[0];
-                    foreach (Chunk.Face f in c2.getFaces())
+                    invisibleChunks.Add(c);
+                    if (enableDebugColors) c.setDebugColor(Color.yellow);
+                    if (((Coordinates)c.getCenter()).distanceTo(pos) < 1.1 * Chunk.size)
                     {
-                        if (Vector3.Dot(vecpos - c2.getCenter(), f.getNormal()) > Vector3.Dot(vecpos - c2.getCenter(), best.getNormal()))
+                        Chunk c2 = c;
+                        Chunk.Face best = c2.getFaces()[0];
+                        foreach (Chunk.Face f in c2.getFaces())
                         {
-                            best = f;
+                            if (Vector3.Dot(vecpos - c2.getCenter(), f.getNormal()) > Vector3.Dot(vecpos - c2.getCenter(), best.getNormal()))
+                            {
+                                best = f;
+                            }
                         }
+                        startfaces.Add(best);
                     }
-                    startfaces.Add(best);
                 }
             }
 

@@ -22,6 +22,7 @@ public class MovementController : MonoBehaviour {
     private Vector3 lastPos;
     private Vector3[] projections = new Vector3[] { new Vector3(1, 1, 0), new Vector3(0, 1, 1), new Vector3(1, 0, 1), new Vector3(1, 0, 0), new Vector3(0, 1, 0) , new Vector3(0, 0, 1), new Vector3(0,0,0)};
     private Vector3[] baseVecs = new Vector3[] { new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)};
+    private bool frozen = false;
 
     void Update ()
     {
@@ -38,9 +39,11 @@ public class MovementController : MonoBehaviour {
         feetPosition = feetpos;
         if (feetpos.getChunk() == null)
         {
-            Debug.Log("Area not loaded, freezing player");
+            if (!frozen) Debug.Log("Area not loaded, freezing player");
+            frozen = true;
             return;
         }
+        frozen = false;
         vel *= Mathf.Pow(0.7f, Time.deltaTime * 60);
         vel.y /= Mathf.Pow(0.7f, Time.deltaTime * 60);
         vel.y *= Mathf.Pow(0.996f, Time.deltaTime * 60);
