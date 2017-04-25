@@ -12,13 +12,17 @@ public class ChunkManager
 
     private int size;
     private string path;
+    private static readonly int threads = Environment.ProcessorCount; //pls don't hyperthread
 
     private static ConcurrentQueue<FSTask> tasks = new ConcurrentQueue<FSTask>();
     private static ChunkManager singleton = new ChunkManager(16, "saves");
 
     static ChunkManager() {
-        Thread worker = new Thread(ProcessTasks);
-        worker.Start();
+        for (int i = 0; i < threads; i++)
+        {
+            Thread worker = new Thread(ProcessTasks);
+            worker.Start();
+        }
     }
 
     //path has to be without trailing slash
@@ -33,16 +37,26 @@ public class ChunkManager
         }
     }
 
+    private static DateTime startTime;
+    private static int loaded = 0;
+
     private static void ProcessTasks()
     {
         while (true)
         {
-
             try
             {
                 FSTask task;
                 if (tasks.TryDequeue(out task))
                 {
+                    if (loaded++ == 0)
+                    {
+                        startTime = DateTime.Now;
+                    }
+                    if (loaded == 200)
+                    {
+                        Debug.Log("Loaded first 200 chunks in " + DateTime.Now.Subtract(startTime));
+                    }
                     if (task.chunkdata != null)
                     {
                         singleton.SaveChunk(task.chunk, task.chunkdata);
