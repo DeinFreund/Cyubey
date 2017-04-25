@@ -6,6 +6,8 @@ using UnityEngine;
 
 public struct Position
 {
+    public static readonly Position nil = new Position(2309583, 940358, 2039482);
+
     public readonly int x, y, z;
     private Chunk chunk;
     int xOff, yOff, zOff;
@@ -114,5 +116,10 @@ public struct Position
         return new Vector3(coords.getX(), coords.getY(), coords.getZ());
     }
 
+
+    public override string ToString()
+    {
+        return getX() + "|" + getY() + "|" + getZ();
+    }
 }
 

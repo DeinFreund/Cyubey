@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
+[Serializable]
 public class Block
 {
 
@@ -10,8 +11,8 @@ public class Block
     //protected Position pos;
     //protected GameObject block;
 
-    public static int ID = 0;
-    public static Type type = typeof(Block);
+    public static short ID = 0;
+    //public static Type type = typeof(Block);
 
 
     public Block()
@@ -65,24 +66,24 @@ public class Block
         return null;
     }
 
-    public virtual int getID()
+    public virtual short getID()
     {
         return ID;
     }
 
-    public int getMeshID()
+    public short getMeshID()
     {
         return getMeshID(coords);
     }
 
-    public virtual int getMeshID(Coordinates coords)
+    public virtual short getMeshID(Coordinates coords)
     {
-        return (coords.GetHashCode() % 13 + 13) % 13 % 4;
+        return (short)((coords.GetHashCode() % 13 + 13) % 13 % 4);
     }
 
     public virtual bool isTransparent()
     {
         return false;
     }
-    
+
 }

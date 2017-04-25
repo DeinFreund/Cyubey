@@ -102,7 +102,7 @@ public class Client {
         {
             Debug.Log("Received tcp for client " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
             Field message = new Field(data);
-            Debug.Log("TCPRec=" + message);
+            Debug.Log("Server Received message of type " + ((TCPMessageID)message.getField("messageID").getInt()) + "\n" + message);
             switch ((TCPMessageID)message.getField("messageID").getInt())
             {
                 case TCPMessageID.LOGIN_REQUEST:
@@ -110,6 +110,15 @@ public class Client {
                     break;
                 case TCPMessageID.READY:
                     ready(message);
+                    break;
+                case TCPMessageID.REQUEST_CHUNK:
+                    requestChunk(message);
+                    break;
+                case TCPMessageID.REQUEST_HASH:
+                    requestHash(message);
+                    break;
+                case TCPMessageID.SET_BLOCK:
+                    setBlock(message);
                     break;
                 default:
                     Debug.LogWarning("Unknown message " + message);
@@ -168,6 +177,40 @@ public class Client {
         }
     }
 
+    void requestChunk(Field message)
+    {
+        Coordinates coords = message.getField("coords").getCoordinates();
+        if (World.getChunk(coords) != null)
+        {
+            sendUnreliable(new ChunkData(acc.id, coords.x, coords.y, coords.z, World.getChunk(coords).serialize()));
+        }
+    }
+
+    void requestHash(Field message)
+    {
+        Coordinates coords = message.getField("coords").getCoordinates();
+        byte[] hash;
+        if (World.getChunk(coords) != null)
+        {
+            hash = World.getChunk(coords).hash();
+        }else
+        {
+            hash = new byte[0];
+        }
+        Field response = new Field();
+        response.addField("coords").setCoordinates(coords);
+        response.addField("hash").setBytes(hash);
+        send(TCPMessageID.CHECK_HASH, response);
+    }
+
+    void setBlock(Field message)
+    {
+        Position pos = message.getField("pos").getCoordinates();
+        Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
+        pos.getChunk().setBlock(pos, block);
+    }
+
+
     public bool isLoggedIn()
     {
         return acc != null;
@@ -205,7 +248,6 @@ public class Client {
             c.sendUnreliable(update);
         }
     }
-
 
     public void sendUnreliable(UDPNetworkMessage msg)
     {

@@ -350,7 +350,18 @@ public class Field//handles section of files
 		vec.y = atField("y").getFloat();
 		vec.z = atField("z").getFloat();
 		return vec;
-	}public void setQuaternion(Quaternion vec ){
+    }
+    public void setCoordinates(Coordinates vec)
+    {
+        atField("x").setString(vec.x.ToString());
+        atField("y").setString(vec.y.ToString());
+        atField("z").setString(vec.z.ToString());
+    }
+    public Coordinates getCoordinates()
+    {
+        return new Coordinates(atField("x").getInt(), atField("y").getInt(), atField("z").getInt());
+    }
+    public void setQuaternion(Quaternion vec ){
 		atField("x").setString(vec.x.ToString());
 		atField("y").setString(vec.y.ToString());
 		atField("z").setString(vec.z.ToString());
@@ -416,5 +427,14 @@ public class Field//handles section of files
 	public string getString(){
 		return Encoding.UTF8.GetString(getValue());
 	}
-	
+
+    public void setBytes(byte[] bytes)
+    {
+        setValue(bytes);
+    }
+    public byte[] getBytes()
+    {
+        return getValue();
+    }
+
 }

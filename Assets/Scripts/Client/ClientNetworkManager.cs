@@ -19,6 +19,7 @@ public class ClientNetworkManager
     static private NetworkStream connection;
     static private byte[] dataRcvBufTCP = new byte[1024];
     static private IPEndPoint serverEndpoint;
+    static private HashSet<Coordinates> receivedChunks = new HashSet<Coordinates>();
 
 
     public static bool joinGame(string ip)
@@ -52,7 +53,8 @@ public class ClientNetworkManager
     {
         IPEndPoint endpoint = new IPEndPoint(IPAddress.Any, ServerNetworkManager.NET_PORT);
         byte[] read = udpClient.EndReceive(res, ref endpoint);
-        MainThread.runAction(() => receiveUDP(read));
+        //MainThread.runAction(() => receiveUDP(read));
+        receiveUDP(read);
         //Debug.Log("Read " + read.Length + "bytes from " + endpoint + " on client for " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
         udpClient.BeginReceive(new AsyncCallback(receiveBytesUDP), null);
     }
@@ -87,11 +89,18 @@ public class ClientNetworkManager
             switch (message.getMessageID())
             {
                 case PositionUpdate.ID:
-                    lock (playersByID)
+                    MainThread.runAction(() =>
                     {
-                        PositionUpdate posUpdate = (PositionUpdate)message;
-                        playersByID[posUpdate.affectedPlayer].updatePosition(posUpdate);
-                    }
+                        lock (playersByID)
+                        {
+                            PositionUpdate posUpdate = (PositionUpdate)message;
+                            playersByID[posUpdate.affectedPlayer].updatePosition(posUpdate);
+                        }
+                    });
+                    break;
+                case ChunkData.ID:
+                    ChunkData chunkData = (ChunkData)message;
+                    receiveChunk(chunkData);
                     break;
                 default:
                     Debug.LogWarning("Unknown network message with id " + message.getMessageID());
@@ -110,7 +119,7 @@ public class ClientNetworkManager
         {
             Debug.Log("Received tcp from server at " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
             Field message = new Field(data);
-            Debug.Log("TCPRec=" + message);
+            Debug.Log("Client Received message of type " + ((TCPMessageID)message.getField("messageID").getInt()) + "\n" + message);
             switch ((TCPMessageID)message.getField("messageID").getInt())
             {
                 case TCPMessageID.HELLO:
@@ -124,6 +133,12 @@ public class ClientNetworkManager
                     break;
                 case TCPMessageID.USER_LOGOUT:
                     userLoggedOut(message);
+                    break;
+                case TCPMessageID.CHECK_HASH:
+                    checkHash(message);
+                    break;
+                case TCPMessageID.UPDATE_BLOCK:
+                    updateBlock(message);
                     break;
                 default:
                     Debug.LogWarning("Unknown message " + message);
@@ -143,6 +158,59 @@ public class ClientNetworkManager
         field.addField("name").setString(username);
         field.addField("password").setString(password);
         send(TCPMessageID.LOGIN_REQUEST, field);
+    }
+
+    private static void checkHash(Field message)
+    {
+        Coordinates coords = message.getField("coords").getCoordinates();
+        if (World.getChunk(coords) != null && World.getChunk(coords).hash() != message.getField("hash").getBytes())
+        {
+            Debug.LogWarning("Chunk " + coords + " out of sync");
+            requestChunk(coords);
+        }
+    }
+
+    private static void receiveChunk(ChunkData chunkData)
+    {
+        lock (receivedChunks)
+        {
+            Coordinates coords = new Coordinates(chunkData.x, chunkData.y, chunkData.z);
+            Debug.Log("Received chunk " + coords);
+            receivedChunks.Add(coords);
+            if (World.getChunk(coords) != null) World.getChunk(coords).deserialize(chunkData.chunkData);
+            else Debug.Log("Received chunk " + coords + " not loaded");
+        }
+    }
+
+    private static void updateBlock(Field message)
+    {
+        Position pos = message.getField("pos").getCoordinates();
+        Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
+        if (pos.getChunk() != null) pos.getChunk().setBlock(pos, block);
+    }
+
+    public static void setBlock(Position pos, Block block)
+    {
+        Field message = new Field();
+        message.addField("pos").setCoordinates(pos);
+        message.addField("block").setBytes(ChunkSerializer.serializeBlock(block));
+        send(TCPMessageID.SET_BLOCK, message);
+    }
+
+    public static void requestChunk(Coordinates coords)
+    {
+        lock (receivedChunks)
+        {
+            Debug.Log("Requesting chunk " + coords);
+            receivedChunks.Remove(coords);
+            Field request = new Field();
+            request.addField("coords").setCoordinates(coords);
+            send(TCPMessageID.REQUEST_CHUNK, request);
+            MainThread.runSoon(() =>
+            {
+                if (!receivedChunks.Contains(coords)) requestChunk(coords);
+            });
+        }
     }
 
     public static void sendUnreliable(UDPNetworkMessage msg)

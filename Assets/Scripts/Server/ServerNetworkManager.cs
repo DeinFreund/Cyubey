@@ -11,7 +11,7 @@ public class ServerNetworkManager
 {
 
     public const int NET_PORT = 12345;
-    
+
     static public List<Client> clients;
     static public List<Player> players;
     static private TcpListener tcpListener;
@@ -24,7 +24,7 @@ public class ServerNetworkManager
             tcpListener = new TcpListener(IPAddress.Any, NET_PORT);
             tcpListener.Start();
             tcpListener.BeginAcceptTcpClient(acceptConnection, tcpListener);
-    
+
             isHosting = true;
             Account.loadAccounts();
             clients = new List<Client>();
@@ -36,7 +36,7 @@ public class ServerNetworkManager
             return false;
         }
     }
-    
+
     public static void acceptConnection(IAsyncResult result)
     {
         if (!isHosting) return;
@@ -49,9 +49,21 @@ public class ServerNetworkManager
                 clients.Add(new Client(client.EndAcceptTcpClient(result)));
                 tcpListener.BeginAcceptTcpClient(acceptConnection, tcpListener);
             }
-        }catch(Exception e)
+        } catch (Exception e)
         {
             Debug.LogError("Error accepting connection " + e);
+        }
+    }
+
+    public static void updateBlock(Position pos, Block block)
+    {
+        if (!isHosting) return;
+        Field message = new Field();
+        message.addField("pos").setCoordinates(pos);
+        message.addField("block").setBytes(ChunkSerializer.serializeBlock(block));
+        foreach (Client c in clients)
+        {
+            c.send(TCPMessageID.UPDATE_BLOCK, message);
         }
     }
 

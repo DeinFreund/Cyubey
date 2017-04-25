@@ -15,8 +15,13 @@ public class Chunk
     protected IGenerator perlin;
     protected List<Face> faces = new List<Face>();
     protected Block[,,] blocks = null;
+    protected bool[,,] blocksModified = null;
+    protected bool untouchedChunk = true;
     protected GameObject empty;
     protected readonly Position centerpos;
+
+    protected bool loaded = false; //has been deserialized
+    protected ConcurrentQueue<KeyValuePair<Position, Block>> setBlockQueue = new ConcurrentQueue<KeyValuePair<Position, Block>>();
 
     public Chunk(Coordinates coords, IGenerator perlin)
     {
@@ -27,7 +32,7 @@ public class Chunk
         this.z = coords.getZ();
         this.coords = new Coordinates(x, y, z);
         this.perlin = perlin;
-        this.centerpos =  new Position(size / 2, size / 2, size / 2, this);
+        this.centerpos = new Position(size / 2, size / 2, size / 2, this);
         if (perlin == null) throw new Exception("Perlin is null");
 
         generate();
@@ -42,24 +47,34 @@ public class Chunk
 
     public void generate()
     {
-
         //Profiler.BeginSample("Initializing block array");
         blocks = new Block[size, size, size];
-        //Profiler.EndSample();
-        //Profiler.BeginSample("Generating chunks");
-        int x, y, z;
-        for (x = 0; x < size; x++)
+        lock (blocks)
         {
-            for (y = 0; y < size; y++)
+            blocksModified = new bool[size, size, size];
+            //Profiler.EndSample();
+            //Profiler.BeginSample("Generating chunks");
+            int x, y, z;
+            for (x = 0; x < size; x++)
             {
-                for (z = 0; z < size; z++)
+                for (y = 0; y < size; y++)
                 {
-                    blocks[x,y,z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
+                    for (z = 0; z < size; z++)
+                    {
+                        blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
+                    }
                 }
             }
         }
-        //Profiler.EndSample();
-        //Debug.Log("Generated chunk at " + coords.ToString());
+        if (!ServerNetworkManager.isServer())
+        {
+            ClientNetworkManager.requestChunk(getCoordinates());
+        }else
+        {
+
+        }
+            //Profiler.EndSample();
+            //Debug.Log("Generated chunk at " + coords.ToString());
     }
 
     //call after chunk has been constructed
@@ -72,6 +87,35 @@ public class Chunk
         recalculateFaceConnections();
         rebuildMesh();
         Profiler.EndSample();
+    }
+
+    public void deserialize(byte[] data)
+    {
+        if (blocks == null) return;
+        lock (blocks)
+        {
+            blocksModified = ChunkSerializer.deserializeBlocks(blocks, data);
+            untouchedChunk = blocks.Length == 0;
+            loaded = true;
+            foreach (KeyValuePair<Position, Block> pair in setBlockQueue)
+            {
+                setBlock(pair.Key, pair.Value, false);
+            }
+            if (!untouchedChunk)
+            {
+                recalculateFaceConnections();
+            }
+        }
+    }
+
+    public byte[] serialize()
+    {
+        return ChunkSerializer.serializeBlocks(blocksModified, blocks);
+    }
+
+    public byte[] hash()
+    {
+        return ChunkSerializer.hash(serialize());
     }
 
     public void unload()
@@ -258,8 +302,21 @@ public class Chunk
     //call if a block in the chunk has been added/removed
     public void setBlock(Position p, Block b)
     {
+        setBlock(p, b, true);
+    }
+    protected void setBlock(Position p, Block b, bool recalculateConnections)
+    { 
+        if (!loaded)
+        {
+            setBlockQueue.Enqueue(new KeyValuePair<Position, Block>(p, b));
+            return;
+        }
+        Debug.Log("Updating block at " + p);
+        ServerNetworkManager.updateBlock(p, b);
+        blocksModified[p.getX(), p.getY(), p.getZ()] = true;
+        untouchedChunk = false;
         blocks[p.getX(), p.getY(), p.getZ()] = b;
-        recalculateFaceConnections();
+        if (recalculateConnections) recalculateFaceConnections();
     }
     List<Face> _faces;
 

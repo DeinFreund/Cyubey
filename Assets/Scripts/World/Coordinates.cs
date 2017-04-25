@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
+[Serializable]
 public struct Coordinates
 {
     public readonly int x, y, z;
@@ -77,6 +78,10 @@ public struct Coordinates
         return new Vector3(coords.getX(), coords.getY(), coords.getZ()); 
     }
 
+    public static implicit operator Position(Coordinates coords)
+    {
+        return new Position(coords.getX(), coords.getY(), coords.getZ());
+    }
 
 }
 

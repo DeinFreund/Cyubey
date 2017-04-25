@@ -3,11 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
+
+[Serializable]
 public class Air : Block {
 
 
-    public static new int ID = -1;
-    public static new Type type = typeof(Air);
+    public static new short ID = -1;
+    //public static new Type type = typeof(Air);
 
     protected override void instantiate()
     {
@@ -19,7 +21,7 @@ public class Air : Block {
 
     }
 
-    public override int getMeshID(Coordinates coords)
+    public override short getMeshID(Coordinates coords)
     {
         return ID;
     }
@@ -29,7 +31,7 @@ public class Air : Block {
         return true;
     }
 
-    public override int getID()
+    public override short getID()
     {
         return ID;
     }

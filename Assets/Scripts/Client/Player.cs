@@ -38,6 +38,7 @@ public class Player {
         bar.GetComponent<Bar>().inv = gameobject.GetComponent<Inventory>();
         bar.GetComponent<Bar>().Init();
         bar.GetComponent<Bar>().enabled = true;
+        gameobject.AddComponent<MousePointer>();
     }
 
 

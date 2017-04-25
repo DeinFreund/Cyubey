@@ -5,9 +5,9 @@ using System.Text;
 using UnityEngine;
 
 [Serializable]
-public class PositionUpdate : UDPNetworkMessage
+public class ChunkData : UDPNetworkMessage
 {
-    public const byte ID = 1;
+    public const byte ID = 2;
     public readonly byte id = ID;
 
     public override byte getMessageID()
@@ -15,21 +15,14 @@ public class PositionUpdate : UDPNetworkMessage
         return id;
     }
 
-    public Vector3Serializer vel;
-    public Vector3Serializer pos;
-    public QuaternionSerializer rot;
+    public byte[] chunkData;
+    public int x, y, z;
 
-    public PositionUpdate(int affectedPlayer) : base(affectedPlayer)
+    public ChunkData(int affectedPlayer, int x, int y, int z, byte[] chunkData) : base(affectedPlayer)
     {
-        vel = new Vector3();
-        pos = new Vector3();
-        rot = new Quaternion();
-    }
-
-    public PositionUpdate(int affectedPlayer, Vector3 position, Quaternion rotation, Vector3 vel) : base(affectedPlayer)
-    {
-        this.pos = position;
-        this.rot = rotation;
-        this.vel = vel;
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.chunkData = chunkData;
     }
 }

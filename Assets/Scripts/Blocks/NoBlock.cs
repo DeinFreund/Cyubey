@@ -1,12 +1,14 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
+[Serializable]
 public class NoBlock : Block
 {
 
     public static Block noblock = new NoBlock();
-    public static new int ID = -1;
+    public static new short ID = -1;
 
     protected override void instantiate()
     {
@@ -18,7 +20,7 @@ public class NoBlock : Block
 
     }
 
-    public override int getMeshID(Coordinates coords)
+    public override short getMeshID(Coordinates coords)
     {
         return ID;
     }
@@ -28,7 +30,7 @@ public class NoBlock : Block
         return true;
     }
 
-    public override int getID()
+    public override short getID()
     {
         return ID;
     }

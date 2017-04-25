@@ -31,6 +31,7 @@ ModelImporter:
     100046: Stone1_001
     100048: Stone1_002
     100050: Stone1_003
+    100052: Selector
     400000: //RootNode
     400002: Cube
     400004: Cube_001
@@ -57,6 +58,7 @@ ModelImporter:
     400046: Stone1_001
     400048: Stone1_002
     400050: Stone1_003
+    400052: Selector
     2300000: Cube
     2300002: Cube_001
     2300004: Cube_002
@@ -82,6 +84,7 @@ ModelImporter:
     2300044: Stone1_001
     2300046: Stone1_002
     2300048: Stone1_003
+    2300050: Selector
     3300000: Cube
     3300002: Cube_001
     3300004: Cube_002
@@ -107,6 +110,7 @@ ModelImporter:
     3300044: Stone1_001
     3300046: Stone1_002
     3300048: Stone1_003
+    3300050: Selector
     4300000: Cube_002
     4300002: Cube_001
     4300004: Cube
@@ -132,6 +136,7 @@ ModelImporter:
     4300044: Stone1_002
     4300046: Stone1_001
     4300048: Stone1
+    4300050: Selector
     7400000: Default Take
     9500000: //RootNode
   materials:
