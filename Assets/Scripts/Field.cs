@@ -105,7 +105,7 @@ public class Field//handles section of files
         using (var msi = new MemoryStream(bytes))
         using (var mso = new MemoryStream())
         {
-            using (var gs = new GZipStream(msi, CompressionMode.Decompress))
+            using (var gs = new DeflateStream(msi, CompressionMode.Decompress))
             {
                 //gs.CopyTo(mso);
                 CopyTo(gs, mso);
@@ -275,15 +275,17 @@ public class Field//handles section of files
 		}
 	}
 
+    private static byte[] buffer = new byte[4096];
     private static void CopyTo(Stream src, Stream dest)
     {
-        byte[] bytes = new byte[4096];
-
-        int cnt;
-
-        while ((cnt = src.Read(bytes, 0, bytes.Length)) != 0)
+        lock (buffer)
         {
-            dest.Write(bytes, 0, cnt);
+            int cnt;
+
+            while ((cnt = src.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                dest.Write(buffer, 0, cnt);
+            }
         }
     }
 
@@ -294,7 +296,7 @@ public class Field//handles section of files
         using (var msi = new MemoryStream(bytes))
         using (var mso = new MemoryStream())
         {
-            using (var gs = new GZipStream(mso, CompressionMode.Compress))
+            using (var gs = new DeflateStream(mso, CompressionMode.Compress))
             {
                 //msi.CopyTo(gs);
                 CopyTo(msi, gs);

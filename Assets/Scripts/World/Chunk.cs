@@ -126,6 +126,7 @@ public class Chunk
         {
             if (f.getOpposingFace() != null) f.getOpposingFace().opposingFace = null;
         }
+        ChunkManager.RequestChunkSave(this, serialize());
     }
 
     private static int[] meshes = new int[size * size * size];

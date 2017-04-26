@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
@@ -11,41 +12,52 @@ using UnityEngine.Profiling;
 
 class ChunkSerializer
 {
+    private static BitArray empty = new BitArray(Chunk.size);
+    private static byte[] nothing = new byte[0];
+
     public static byte[] serializeBlocks(BitArray[,] blocksModified, Block[,,] blocks)
     {
-
+        if (blocksModified == null) return nothing;
         BinaryFormatter bf = new BinaryFormatter();
-        MemoryStream memStr = new MemoryStream();
-        bf.Serialize(memStr, blocksModified);
-        for (int sx = 0; sx < Chunk.size; sx++)
-            for (int sy = 0; sy < Chunk.size; sy++)
-                if (blocksModified[sx, sy] != null)
-                    for (int sz = 0; sz < Chunk.size; sz++)
-                        if (blocksModified[sx, sy][sz])
-                            bf.Serialize(memStr, blocks[sx,sy,sz]);
-        memStr.Position = 0;
-        return memStr.ToArray();
+        using (MemoryStream memStr = new MemoryStream()) {
+            using (DeflateStream compressed = new DeflateStream(memStr, CompressionMode.Compress))
+            {
+                bf.Serialize(compressed, blocksModified);
+                for (int sx = 0; sx < Chunk.size; sx++)
+                    for (int sy = 0; sy < Chunk.size; sy++)
+                        if (blocksModified[sx, sy] != null)
+                            for (int sz = 0; sz < Chunk.size; sz++)
+                                if (blocksModified[sx, sy][sz])
+                                    bf.Serialize(compressed, blocks[sx, sy, sz]);
+            }
+            return memStr.ToArray();
+        }
     }
 
     public static BitArray[,] deserializeBlocks(Block[,,] blocks, byte[] serialized, int length)
     {
         if (length == 0) return null;
-        MemoryStream memStr = new MemoryStream(serialized, 0, length);
-        memStr.Position = 0;
-        BinaryFormatter bf = new BinaryFormatter();
-        BitArray[,] blocksModified = (BitArray[,])bf.Deserialize(memStr);
-        if (blocksModified.GetLength(0) != Chunk.size || blocksModified.GetLength(1) != Chunk.size || blocksModified.GetLength(2) != Chunk.size)
+        using (MemoryStream memStr = new MemoryStream(serialized, 0, length))
         {
-            Debug.LogError("Corrupt save, resetting chunk");
-            return null;
+            using (DeflateStream compressed = new DeflateStream(memStr, CompressionMode.Decompress))
+            {
+                BinaryFormatter bf = new BinaryFormatter();
+                BitArray[,] blocksModified = (BitArray[,])bf.Deserialize(compressed);
+                if (blocksModified.GetLength(0) != Chunk.size || blocksModified.GetLength(1) != Chunk.size)
+                {
+                    Debug.LogError("Corrupt save, resetting chunk");
+                    return null;
+                }
+                Debug.Log("Deserialized chunk");
+                for (int sx = 0; sx < Chunk.size; sx++)
+                    for (int sy = 0; sy < Chunk.size; sy++)
+                        if (blocksModified[sx, sy] != null)
+                            for (int sz = 0; sz < Chunk.size; sz++)
+                                if (blocksModified[sx, sy][sz])
+                                    blocks[sx, sy, sz] = (Block)bf.Deserialize(compressed);
+                return blocksModified;
+            }
         }
-        for (int sx = 0; sx < Chunk.size; sx++)
-            for (int sy = 0; sy < Chunk.size; sy++)
-                if (blocksModified[sx, sy] != null)
-                    for (int sz = 0; sz < Chunk.size; sz++)
-                        if (blocksModified[sx, sy][sz])
-                            blocks[sx, sy, sz] = (Block)bf.Deserialize(memStr);
-        return blocksModified;
     }
 
     public static byte[] serializeBlock(Block block)

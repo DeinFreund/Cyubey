@@ -151,9 +151,14 @@ public class World : MonoBehaviour {
 
     public static Chunk getChunk(Coordinates coords)
     {
+        return getChunk(coords, false);
+    }
+
+    public static Chunk getChunk(Coordinates coords, bool unloaded)
+    {
         lock (chunks)
         {
-            if (!chunks.ContainsKey(coords))
+            if (!chunks.ContainsKey(coords) || !unloaded && loadingChunks.Contains(coords))
             {
                 return null;
             }
@@ -174,7 +179,7 @@ public class World : MonoBehaviour {
             if (chunks.ContainsKey(coords)) return;
             if (loadingChunks.Contains(coords)) return;
             loadingChunks.Add(coords);
-            new Chunk(coords, terrain);
+            chunks[coords] = new Chunk(coords, terrain);
         }
     }
 
@@ -201,6 +206,10 @@ public class World : MonoBehaviour {
                 ServerNetworkManager.shutdown();
             }
             ClientNetworkManager.shutdown();
+            foreach (Chunk c in chunks.Values)
+            {
+                c.unload();
+            }
         }
     }
 }

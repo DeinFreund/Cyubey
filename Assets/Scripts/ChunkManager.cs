@@ -16,6 +16,7 @@ public class ChunkManager
 
     private static ConcurrentQueue<FSTask> tasks = new ConcurrentQueue<FSTask>();
     private static ChunkManager singleton = new ChunkManager(16, "saves");
+    private static Dictionary<string, object> fileLocks = new Dictionary<string, object>();
 
     static ChunkManager() {
         for (int i = 0; i < threads; i++)
@@ -83,10 +84,17 @@ public class ChunkManager
         tasks.Enqueue(new FSTask(chunk, data));
     }
 
+    private static object requestFileLock(string path)
+    {
+        lock (fileLocks)
+        {
+            if (!fileLocks.ContainsKey(path)) fileLocks[path] = new object();
+            return fileLocks[path];
+        }
+    }
+
     private void SaveChunk(Chunk chunk, byte[] chunkdata)
     {
-
-
         int bx = div_floor(chunk.getX(), size);
         int by = div_floor(chunk.getY(), size);
         int bz = div_floor(chunk.getZ(), size);
@@ -99,48 +107,52 @@ public class ChunkManager
         int oldLength;
         int newLength = chunkdata.Length;
 
-        if (!File.Exists(file))
-        {
-            result = new byte[(size * size * size * 4) + newLength];
 
-            space = 4 * pos;
-        }
-        else
+        lock (requestFileLock(file))
         {
-            prev = File.ReadAllBytes(file);
-
-            for (int i = 0; i < pos; i++)
+            if (!File.Exists(file))
             {
-                space += 4 + BitConverter.ToInt32(prev, space);
+                result = new byte[(size * size * size * 4) + newLength];
+
+                space = 4 * pos;
+            }
+            else
+            {
+                prev = File.ReadAllBytes(file);
+
+                for (int i = 0; i < pos; i++)
+                {
+                    space += 4 + BitConverter.ToInt32(prev, space);
+                }
+
+                oldLength = BitConverter.ToInt32(prev, space);
+                result = new byte[prev.Length + newLength - oldLength];
+
+                for (int i = 0; i < space; i++)
+                {
+                    result[i] = prev[i];
+                }
+
+                for (int i = space + 4 + newLength; i < result.Length; i++)
+                {
+                    result[i] = prev[i - newLength + oldLength];
+                }
+            }
+            if (chunkdata.Length > 0)
+            Debug.Log("Insert " + chunkdata.Length + " Bytes at Byte " + space);
+
+            for (int i = 0; i < 4; i++)
+            {
+                result[space + i] = BitConverter.GetBytes(newLength)[i];
             }
 
-            oldLength = BitConverter.ToInt32(prev, space);
-            result = new byte[prev.Length + newLength - oldLength];
-
-            for (int i = 0; i < space; i++)
+            for (int i = 0; i < chunkdata.Length; i++)
             {
-                result[i] = prev[i];
+                result[space + i + 4] = chunkdata[i];
             }
 
-            for (int i = space + 4 + newLength; i < result.Length; i++)
-            {
-                result[i] = prev[i - newLength + oldLength];
-            }
+            File.WriteAllBytes(file, result);
         }
-
-        Debug.Log("Insert " + chunkdata.Length + " Bytes at Byte " + space);
-
-        for (int i = 0; i < 4; i++)
-        {
-            result[space + i] = BitConverter.GetBytes(newLength)[i];
-        }
-
-        for (int i = 0; i < chunkdata.Length; i++)
-        {
-            result[space + i + 4] = chunkdata[i];
-        }
-
-        File.WriteAllBytes(file, result);
     }
 
     public static void RequestChunkLoad(Chunk chunk)
@@ -149,45 +161,44 @@ public class ChunkManager
         tasks.Enqueue(new FSTask(chunk, null));
     }
     
-    private static byte[] buffer = new byte[4096];
+    private static byte[] buffer = new byte[16384];
     private static byte[] intbuf = new byte[4];
 
     private void LoadChunk(Chunk chunk)
     {
-        /*
-        MainThread.runAction(() =>
-        {
-        Profiler.BeginSample("LoadChunk");
-        //*/
-
         int bx = div_floor(chunk.getX(), size);
         int by = div_floor(chunk.getY(), size);
         int bz = div_floor(chunk.getZ(), size);
         string file = path + "/" + bx + "_" + by + "_" + bz + ".region";
-        if (!File.Exists(file))
+        lock (requestFileLock(file))
         {
-            chunk.deserialize(buffer, 0);
-            return;
-        } //Region does not exist
-
-        using (Stream source = File.OpenRead(file))
-        {
-            int chunkLength;
-            Chunk c;
-            for (int pos = 0; pos < size * size * size; pos++)
+            if (chunk.isLoaded()) return;
+            if (!File.Exists(file))
             {
-                source.Read(intbuf, 0, intbuf.Length);
-                chunkLength = BitConverter.ToInt32(intbuf, 0);
-                source.Read(buffer, 0, chunkLength);
-                c = World.getChunk(new Coordinates(pos % size, (pos / size) % size, pos / (size * size)));
-                if (c != null && !c.isLoaded()) c.deserialize(buffer, chunkLength);
+                chunk.deserialize(buffer, 0);
+                return;
+            } //Region does not exist
+
+            using (Stream source = File.OpenRead(file))
+            {
+                int chunkLength;
+                Chunk c;
+                for (int pos = 0; pos < size * size * size; pos++)
+                {
+                    source.Read(intbuf, 0, intbuf.Length);
+                    chunkLength = BitConverter.ToInt32(intbuf, 0);
+                    Coordinates coords = new Coordinates(pos % size + size * bx, (pos / size) % size + size * by, pos / (size * size) + size * bz);
+                    if (chunkLength > buffer.Length)
+                    {
+                        Debug.LogWarning("Buffer overflow for chunk " + coords + ": " + chunkLength + " in region " + file);
+                        chunkLength = buffer.Length;
+                    }
+                    source.Read(buffer, 0, chunkLength);
+                    c = World.getChunk(coords, true);
+                    if (c != null && !c.isLoaded()) c.deserialize(buffer, chunkLength);
+                }
             }
         }
-            /*
-            Profiler.EndSample();
-        });
-        while (!chunk.isLoaded()) Thread.Sleep(50);
-        //*/
     }
 
 
