@@ -57,10 +57,19 @@ public struct Coordinates
         return getX() + "|" + getY() + "|" + getZ();
     }
 
+    public Coordinates div_floor(int size)
+    {
+        return new Coordinates(Position.div_floor(x, size), Position.div_floor(y, size), Position.div_floor(z, size));
+    } 
 
     public static Coordinates operator +(Coordinates c1, Coordinates c2)
     {
         return new Coordinates(c1.getX() + c2.getX(), c1.getY() + c2.getY(), c1.getZ() + c2.getZ());
+    }
+
+    public static Coordinates operator -(Coordinates c1, Coordinates c2)
+    {
+        return c1 + -1*c2;
     }
 
     public static Coordinates operator *(int c1, Coordinates c2)

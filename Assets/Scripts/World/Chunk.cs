@@ -12,18 +12,19 @@ public class Chunk
 
     protected int x, y, z;
     protected Coordinates coords;
-    protected IGenerator perlin;
     protected List<Face> faces = new List<Face>();
     protected Block[,,] blocks = null;
     protected BitArray[,] blocksModified = null;
     protected bool untouchedChunk = true;
     protected GameObject empty;
     protected readonly Position centerpos;
+    protected bool terrainReady;
+    protected bool deserialized;
 
     protected bool loaded = false; //has been deserialized
     protected ConcurrentQueue<KeyValuePair<Position, Block>> setBlockQueue = new ConcurrentQueue<KeyValuePair<Position, Block>>();
 
-    public Chunk(Coordinates coords, IGenerator perlin)
+    public Chunk(Coordinates coords)
     {
 
         //Profiler.BeginSample("Constructing chunk");
@@ -31,9 +32,8 @@ public class Chunk
         this.y = coords.getY();
         this.z = coords.getZ();
         this.coords = new Coordinates(x, y, z);
-        this.perlin = perlin;
         this.centerpos = new Position(size / 2, size / 2, size / 2, this);
-        if (perlin == null) throw new Exception("Perlin is null");
+        terrainReady = TerrainCompositor.GetBlock(centerpos) > short.MinValue;
 
         generate();
         faces.Add(new Face(this, new Coordinates(0, 1, 0)));
@@ -64,7 +64,18 @@ public class Chunk
         {
             //Profiler.BeginSample("Loading chunks");
             blocksModified = ChunkSerializer.deserializeBlocks(blocks, data, length);
+            deserialized = true;
+            untouchedChunk = length == 0;
+            finishInitialization();
+        }
+    }
 
+    protected void finishInitialization()
+    {
+        lock (blocks)
+        {
+            if (!terrainReady) return;
+            if (loaded) return;
             int x, y, z;
             for (x = 0; x < size; x++)
             {
@@ -74,7 +85,7 @@ public class Chunk
                     {
                         for (z = 0; z < size; z++)
                         {
-                            blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
+                            blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z));
                         }
                     }
                     else if (blocksModified[x, y] != null)
@@ -83,14 +94,13 @@ public class Chunk
                         {
                             if (!blocksModified[x, y][z])
                             {
-                                blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), perlin);
+                                blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z));
                             }
                         }
                     }
                 }
             }
-            
-            untouchedChunk = length == 0;
+
             //Debug.Log("Loaded Chunk at " + coords);
             foreach (KeyValuePair<Position, Block> pair in setBlockQueue)
             {
@@ -136,9 +146,9 @@ public class Chunk
     public void rebuildMesh()
     {
 
-        //Profiler.BeginSample("Building chunk mesh");
+        Profiler.BeginSample("Building chunk mesh");
         
-        //Profiler.BeginSample("Reading meshes");
+        Profiler.BeginSample("Reading meshes");
         int count = 0;
         for (int x = 0; x < size; x++)
         {
@@ -155,8 +165,8 @@ public class Chunk
                 }
             }
         }
-        //Profiler.EndSample();
-        //Profiler.BeginSample("Combining meshes");
+        Profiler.EndSample();
+        Profiler.BeginSample("Combining meshes");
         Matrix4x4 transform = new Matrix4x4();
         Vector4 vec4 = new Vector4();
         for (int i = 0; i < count; i++)
@@ -181,16 +191,22 @@ public class Chunk
         {
             combine[i].mesh = nothing;
         }
-        //Profiler.EndSample();
-        //Profiler.BeginSample("Applying mesh");
+        Profiler.EndSample();
+        Profiler.BeginSample("Applying mesh");
         empty.GetComponent<MeshFilter>().mesh = new Mesh();
         empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
         //empty.GetComponent<MeshFilter>().mesh.Optimize();
         //empty.GetComponent<MeshCollider>().sharedMesh = empty.GetComponent<MeshFilter>().mesh;
         empty.SetActive(false);
         empty.SetActive(true);
-        //Profiler.EndSample();
-        //Profiler.EndSample();
+        Profiler.EndSample();
+        Profiler.EndSample();
+    }
+
+    public void TerrainReady()
+    {
+        this.terrainReady = true;
+        finishInitialization();
     }
 
     private Color debugColor;

@@ -33,12 +33,12 @@ public class MainThread : MonoBehaviour {
 	void Update () {
 
         Action action;
-        while (events.TryDequeue(out action))
+        if (events.TryDequeue(out action))
         {
             action.Invoke();
         }
         Chunk chunk;
-        while (chunksAwaitingInstantiation.TryDequeue(out chunk))
+        if (chunksAwaitingInstantiation.TryDequeue(out chunk))
         {
             chunk.setInstantiated(true);
         }

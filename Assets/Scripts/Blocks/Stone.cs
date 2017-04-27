@@ -5,10 +5,10 @@ using System;
 [Serializable]
 public class Stone : Block
 {
+    
+    public new const short ID = 1;
 
-    public static new short ID = 1;
-
-    public Stone() : base()
+    public Stone(Coordinates coords) : base(coords)
     {
 
     }

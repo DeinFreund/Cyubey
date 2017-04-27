@@ -11,18 +11,15 @@ public class Block
     //protected Position pos;
     //protected GameObject block;
 
-    public static short ID = 0;
+    public const short ID = 0;
     //public static Type type = typeof(Block);
 
 
-    public Block()
-    {
-    }
-
-    public virtual void init(Coordinates coords)
+    public Block(Coordinates coords)
     {
         this.coords = coords;
     }
+    
 
     public virtual Field unload()
     {

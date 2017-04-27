@@ -7,15 +7,15 @@ using System;
 public class NoBlock : Block
 {
 
-    public static Block noblock = new NoBlock();
-    public static new short ID = -1;
+    public static Block noblock = new NoBlock(new Coordinates());
+    public new const short ID = -1;
 
     protected override void instantiate()
     {
 
     }
 
-    public NoBlock() : base()
+    public NoBlock(Coordinates coords) : base(coords)
     {
 
     }

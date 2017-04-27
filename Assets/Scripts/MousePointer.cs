@@ -36,7 +36,7 @@ public class MousePointer : MonoBehaviour {
 
         if (Input.GetButtonDown("Fire1"))
         {
-            ClientNetworkManager.setBlock(selection, new Air());
+            ClientNetworkManager.setBlock(selection, new Air(selection));
         }
     }
 }

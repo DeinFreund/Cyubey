@@ -75,7 +75,7 @@ class ChunkSerializer
         if (serialized.Length == 0)
         {
             Debug.LogError("Null block given");
-            return new Block();
+            return new Block(new Coordinates());
         }
         MemoryStream memStr = new MemoryStream(serialized);
         memStr.Position = 0;

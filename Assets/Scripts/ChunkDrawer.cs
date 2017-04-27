@@ -49,7 +49,7 @@ public class ChunkDrawer : MonoBehaviour {
         int maxdep = 0;
         while (stack.Count > 0)
         {
-            Profiler.BeginSample("args");
+            //Profiler.BeginSample("args");
 
             arg = stack.Pop();
             c = arg.c;
@@ -60,13 +60,13 @@ public class ChunkDrawer : MonoBehaviour {
             topRightY = arg.topRightY;
 
             //args = new Pair<Chunk, Chunk.Face>(c, null);
-            Profiler.EndSample();
+            //Profiler.EndSample();
             if (c == null) continue;
             if (chunksProcessed.Contains(c))
             {
                 continue;
             }
-            Profiler.BeginSample("args2");
+            //Profiler.BeginSample("args2");
             chunksProcessed.Add(c);
 
             int cx = c.getXOffset() - pos.x;
@@ -74,8 +74,8 @@ public class ChunkDrawer : MonoBehaviour {
             int cz = c.getZOffset() - pos.z;
             int s = Chunk.size;
 
-            Profiler.EndSample();
-            Profiler.BeginSample("evaluation");
+            //Profiler.EndSample();
+            //Profiler.BeginSample("evaluation");
 
 
 
@@ -134,7 +134,7 @@ public class ChunkDrawer : MonoBehaviour {
             {
                 //Debug.Log(minX + "|" + minY + " - " + maxX + "|" + maxY + " / " + bottomLeftX + "|" + bottomLeftY + " - " + topRightX + "|" + topRightY + " => " + (minX >= topRightX || minY >= topRightY || maxX <= bottomLeftX || maxY <= bottomLeftY));
             }
-            Profiler.EndSample();
+            //Profiler.EndSample();
             if (behind == 8)
             {
                 //Chunk behind camera
@@ -148,7 +148,7 @@ public class ChunkDrawer : MonoBehaviour {
                 continue;
             }
 
-            Profiler.BeginSample("recursion");
+            //Profiler.BeginSample("recursion");
 
             if (c.getX() == 0 && c.getY() == -1 && c.getZ() == 0)
             {
@@ -177,7 +177,7 @@ public class ChunkDrawer : MonoBehaviour {
             }
             //Debug.Log("Drawing chunk " + c.getCoordinates() + " with " + faces.Count + " connections");
 
-            Profiler.EndSample();
+            //Profiler.EndSample();
             Debug.DrawRay(c.getCenter() + new Vector3(1,1,1) - vecpos, (Vector3)incomingFace.getNormal() * 5, maxdep++ == 0 ? Color.green : Color.blue, 0.1f);
             //if (maxdep++ > 4) break;
             

@@ -32,8 +32,8 @@ public class BlockFactory : MonoBehaviour {
         blockpool.Add(Block.ID, new List<Block>());
         for (int i = 0; i < 0*1e6; i++)
         {
-            blockpool[0].Add(new Block());
-            blockpool[-1].Add(new Air());
+            //blockpool[0].Add(new Block());
+            //blockpool[-1].Add(new Air());
         }
     }
 
@@ -100,23 +100,22 @@ public class BlockFactory : MonoBehaviour {
         return block;
     }
 
-    public static Block create(Coordinates position, IGenerator perlin)
+    public static Block create(Coordinates position)
     {
-        //Profiler.BeginSample("Create Block");
-        float col = perlin.getValue(position);
         Block block;
-        if (col > 0.42 )
+        switch (TerrainCompositor.GetBlock(position))
         {
-            //block = getInstance(Block.ID, Block.type); //memory killer
-            block = new Block();
+            case Block.ID:
+                block = new Block(position);
+                break;
+            case Air.ID:
+                block = new Air(position);
+                break;
+            default:
+                Debug.LogError("Unknown block ID: " + TerrainCompositor.GetBlock(position) + " at coordinates " + position);
+                block = new Air(position);
+                break;
         }
-        else
-        {
-            block = new Air();
-            //block = getInstance(Air.ID, Air.type);
-        }
-        block.init(position);
-        //Profiler.EndSample();
         return block;
     }
 }

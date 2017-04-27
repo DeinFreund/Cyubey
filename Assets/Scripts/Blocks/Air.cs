@@ -8,7 +8,7 @@ using System;
 public class Air : Block {
 
 
-    public static new short ID = -1;
+    public new const short ID = -1;
     //public static new Type type = typeof(Air);
 
     protected override void instantiate()
@@ -16,7 +16,7 @@ public class Air : Block {
 
     }
 
-    public Air() : base()
+    public Air(Coordinates coords) : base(coords)
     {
 
     }

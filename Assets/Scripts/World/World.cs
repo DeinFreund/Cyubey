@@ -10,11 +10,6 @@ using System.Linq;
 
 public class World : MonoBehaviour {
 
-    static readonly LocationFreer terrain = new LocationFreer(
-        new LayerBlender(
-            new Layer(new Bias(new Perlin(42, new float[] { 0.5f, 2f }, 4), 0.58f), -1),
-            new Layer(new Perlin(42, new float[] { 0.05f, 0.1f, 0.2f, 0.5f }, 4), 0)
-        ));
     protected static Dictionary<Coordinates, Chunk> chunks = new Dictionary<Coordinates, Chunk>();
     
     void Awake()
@@ -24,7 +19,6 @@ public class World : MonoBehaviour {
 
     // Use this for initialization
     void Start() {
-        terrain.freeLocation(new Coordinates(0, 0, 0), 4, 12);
         curTime = lastAlive = Time.time;
         Thread thread = new Thread(generateChunks);
         thread.Start();
@@ -179,7 +173,8 @@ public class World : MonoBehaviour {
             if (chunks.ContainsKey(coords)) return;
             if (loadingChunks.Contains(coords)) return;
             loadingChunks.Add(coords);
-            chunks[coords] = new Chunk(coords, terrain);
+            chunks[coords] = new Chunk(coords);
+            TerrainCompositor.ChunkLoaded(chunks[coords]);
         }
     }
 
@@ -190,6 +185,7 @@ public class World : MonoBehaviour {
             if (!chunks.ContainsKey(coords)) return;
             Profiler.BeginSample("Unloading Chunks");
             //Debug.Log("Unloading Chunk at " + coords.ToString());
+            TerrainCompositor.ChunkUnloaded(chunks[coords]);
             chunks[coords].unload();
             chunks.Remove(coords);
             Profiler.EndSample();

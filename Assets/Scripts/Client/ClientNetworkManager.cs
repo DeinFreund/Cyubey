@@ -94,7 +94,7 @@ public class ClientNetworkManager
                         lock (playersByID)
                         {
                             PositionUpdate posUpdate = (PositionUpdate)message;
-                            playersByID[posUpdate.affectedPlayer].updatePosition(posUpdate);
+                            if (playersByID.ContainsKey(posUpdate.affectedPlayer)) playersByID[posUpdate.affectedPlayer].updatePosition(posUpdate);
                         }
                     });
                     break;
