@@ -17,6 +17,8 @@ public class Chunk
     protected BitArray[,] blocksModified = null;
     protected bool untouchedChunk = true;
     protected GameObject empty;
+    protected bool modifiedSinceSave = false;
+    protected Dictionary<Transform, GameObject> fluids = new Dictionary<Transform, GameObject>();
     protected readonly Position centerpos;
     protected bool terrainReady;
     protected bool deserialized;
@@ -33,7 +35,7 @@ public class Chunk
         this.z = coords.getZ();
         this.coords = new Coordinates(x, y, z);
         this.centerpos = new Position(size / 2, size / 2, size / 2, this);
-        terrainReady = TerrainCompositor.GetBlock(centerpos) > short.MinValue;
+        terrainReady = TerrainCompositor.GetBlockReady(centerpos);
 
         generate();
         faces.Add(new Face(this, new Coordinates(0, 1, 0)));
@@ -123,6 +125,17 @@ public class Chunk
     {
         return ChunkSerializer.serializeBlocks(blocksModified, blocks);
     }
+    
+    public void saved()
+    {
+        //not really thread safe, hope it works
+        modifiedSinceSave = false;
+    }
+
+    public bool isModifiedSinceSave()
+    {
+        return modifiedSinceSave;
+    }
 
     public byte[] hash()
     {
@@ -136,17 +149,18 @@ public class Chunk
         {
             if (f.getOpposingFace() != null) f.getOpposingFace().opposingFace = null;
         }
-        ChunkManager.RequestChunkSave(this, serialize());
+        ChunkManager.RequestChunkSave(this);
     }
 
     private static int[] meshes = new int[size * size * size];
     private static Vector3[] positions = new Vector3[size * size * size];
     private static CombineInstance[] combine = new CombineInstance[size * size * size / 2];
     private static Mesh nothing = new Mesh();
+    private static Liquid liquid;
     public void rebuildMesh()
     {
 
-        Profiler.BeginSample("Building chunk mesh");
+        Profiler.BeginSample("Building chunk terrain mesh");
         
         Profiler.BeginSample("Reading meshes");
         int count = 0;
@@ -156,11 +170,15 @@ public class Chunk
             {
                 for (int z = 0; z < size; z++)
                 {
-                    if (getBlock(x, y, z).getMeshID() >= 0 && (getBlock(x, y, z + 1).isTransparent() || getBlock(x, y, z - 1).isTransparent() || getBlock(x, y + 1, z).isTransparent()
+                    if (!getBlock(x, y, z).isTransparent() && (getBlock(x, y, z + 1).isTransparent() || getBlock(x, y, z - 1).isTransparent() || getBlock(x, y + 1, z).isTransparent()
                             || getBlock(x, y - 1, z).isTransparent() || getBlock(x + 1, y, z).isTransparent() || getBlock(x - 1, y, z).isTransparent()))
                     {
                         meshes[count] = getBlock(x, y, z).getMeshID();
                         positions[count++] = new Vector3(x, y, z);
+                    }else if (getBlock(x,y,z).getMeshID() >= 0 && getBlock(x, y, z).isTransparent() && getBlock(x,y,z) is Liquid)
+                    {
+                        liquid = (Liquid) getBlock(x, y, z);
+                        if (!fluids.ContainsKey(liquid.getPrefab())) fluids.Add(liquid.getPrefab(), GameObject.Instantiate(liquid.getPrefab(), empty.transform).gameObject);
                     }
                 }
             }
@@ -195,12 +213,61 @@ public class Chunk
         Profiler.BeginSample("Applying mesh");
         empty.GetComponent<MeshFilter>().mesh = new Mesh();
         empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
-        //empty.GetComponent<MeshFilter>().mesh.Optimize();
-        //empty.GetComponent<MeshCollider>().sharedMesh = empty.GetComponent<MeshFilter>().mesh;
         empty.SetActive(false);
         empty.SetActive(true);
         Profiler.EndSample();
         Profiler.EndSample();
+
+        foreach (Transform liquidType in fluids.Keys)
+        {
+
+            Profiler.BeginSample("Building chunk fluid mesh");
+
+            Profiler.BeginSample("Reading meshes");
+            count = 0;
+            for (int x = 0; x < size; x++)
+            {
+                for (int y = 0; y < size; y++)
+                {
+                    for (int z = 0; z < size; z++)
+                    {
+                        if (getBlock(x, y, z).getMeshID() >= 0 && getBlock(x, y, z).isTransparent() && getBlock(x, y, z) is Liquid)
+                        {
+                            meshes[count] = getBlock(x, y, z).getMeshID();
+                            positions[count++] = new Vector3(x, y, z);
+                        }
+                    }
+                }
+            }
+            Profiler.EndSample();
+            Profiler.BeginSample("Combining meshes");
+            for (int i = 0; i < count; i++)
+            {
+                combine[i].mesh = BlockFactory.blockmesh[meshes[i]];
+                vec4.Set(1, 0, 0, positions[i].x);
+                transform.SetRow(0, vec4);
+                vec4.Set(0, 1, 0, positions[i].y);
+                transform.SetRow(1, vec4);
+                vec4.Set(0, 0, 1, positions[i].z);
+                transform.SetRow(2, vec4);
+                vec4.Set(0, 0, 0, 1);
+                transform.SetRow(3, vec4);
+                combine[i].transform = transform;
+            }
+            for (int i = count; i < combine.Length; i++)
+            {
+                combine[i].mesh = nothing;
+            }
+            Profiler.EndSample();
+            Profiler.BeginSample("Applying mesh");
+            GameObject empty = fluids[liquidType];
+            empty.GetComponent<MeshFilter>().mesh = new Mesh();
+            empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
+            empty.SetActive(false);
+            empty.SetActive(true);
+            Profiler.EndSample();
+            Profiler.EndSample();
+        }
     }
 
     public void TerrainReady()
@@ -233,11 +300,15 @@ public class Chunk
     public void setRendered(bool value)
     {
         //Debug.DrawLine(Camera.main.transform.position, new Position(0, 0, 0, this).offset(size / 2, size / 2, size / 2), value ? Color.green : Color.red, 0.017f);
-        if (value == isRendered) return;
+        //if (value == isRendered) return;
 
         Profiler.BeginSample("Updating chunk renderers");
         isRendered = value;
-        if (empty)
+        if (empty != null)
+        {
+            empty.GetComponent<MeshRenderer>().enabled = value;
+        }
+        foreach (GameObject empty in fluids.Values)
         {
             empty.GetComponent<MeshRenderer>().enabled = value;
         }
@@ -262,6 +333,7 @@ public class Chunk
                 empty.transform.SetParent(MovementController.worldParent.transform, false);
 
                 rebuildMesh();
+                setRendered(false);
             }
             else
             {
@@ -324,6 +396,12 @@ public class Chunk
     {
         return (x >= 0 && y >= 0 && z >= 0 && x < size && y < size && z < size) ? blocks[x, y, z] : NoBlock.noblock;
     }
+    //called by blocks if they have been modified, alerting the chunk that their content has changed
+    public void blockUpdated(Block b)
+    {
+        modifiedSinceSave = true;
+        untouchedChunk = false;
+    }
     //call if a block in the chunk has been added/removed
     public void setBlock(Position p, Block b)
     {
@@ -350,6 +428,7 @@ public class Chunk
             }
             blocksModified[p.getRelativeX(), p.getRelativeY()][p.getRelativeZ()] = true;
             untouchedChunk = false;
+            modifiedSinceSave = true;
             blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = b;
             if (recalculateConnections)
             {
@@ -520,4 +599,8 @@ public class Chunk
         return other != null && other.getX() == getX() && other.getY() == getY() && other.getZ() == getZ();
     }
 
+    public override string ToString()
+    {
+        return "Chunk@" + coords;
+    }
 }

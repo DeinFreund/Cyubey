@@ -38,5 +38,13 @@ public class MousePointer : MonoBehaviour {
         {
             ClientNetworkManager.setBlock(selection, new Air(selection));
         }
+        if (Input.GetButtonDown("Fire2"))
+        {
+            ClientNetworkManager.setBlock(selection.above(), new Water(selection.above()));
+        }
+        if (Input.GetButtonDown("Fire3"))
+        {
+            ClientNetworkManager.setBlock(selection.above(), new Rock(selection.above()));
+        }
     }
 }

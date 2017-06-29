@@ -2,5 +2,5 @@
 public interface IGenerator {
 
 
-    float getValue(Coordinates coords);
+    void fillArray(Coordinates coords, float[,,] array);
 }

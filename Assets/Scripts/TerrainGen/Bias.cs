@@ -18,8 +18,19 @@ public class Bias : IGenerator
         bias = Math.Max(0, Math.Min(1, bias));
         this.power = -Mathf.Log(bias) / Mathf.Log(2);
     }
-    public float getValue(Coordinates coords)
+    public void fillArray(Coordinates coords, float[,,] array)
     {
-        return Mathf.Pow(child.getValue(coords), power);
+        child.fillArray(coords, array);
+        int x, y, z;
+        for (x = 0; x < array.GetLength(0); x++)
+        {
+            for (y = 0; y < array.GetLength(1); y++)
+            {
+                for (z = 0; z < array.GetLength(2); z++)
+                {
+                    array[x, y, z] = Mathf.Pow(array[x, y, z], power);
+                }
+            }
+        }
     }
 }

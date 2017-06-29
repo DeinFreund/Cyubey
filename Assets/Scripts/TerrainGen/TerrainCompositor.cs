@@ -12,8 +12,15 @@ public class TerrainCompositor
     public static short GetBlock(Coordinates coords)
     {
         Coordinates tcpos = coords.div_floor(TerrainChunk.size * Chunk.size);
-        if (!loadedTerrainChunks.ContainsKey(tcpos)) return short.MinValue;
+        if (!loadedTerrainChunks.ContainsKey(tcpos)) throw new Exception("Queried non generated terrain chunk");
         return loadedTerrainChunks[tcpos].getBlock(coords - tcpos * (TerrainChunk.size * Chunk.size));
+    }
+
+    public static bool GetBlockReady(Coordinates coords)
+    {
+        Coordinates tcpos = coords.div_floor(TerrainChunk.size * Chunk.size);
+        if (!loadedTerrainChunks.ContainsKey(tcpos)) return false;
+        return loadedTerrainChunks[tcpos].isGenerated();
     }
 
     public static void ChunkLoaded(Chunk chunk)

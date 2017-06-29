@@ -14,7 +14,7 @@ public class MovementController : MonoBehaviour {
 
     // Use this for initialization
     void Start() {
-        worldParent = new GameObject();
+        worldParent = new GameObject("worldParent");
     }
 
     private float lastNetUpdate = 0;

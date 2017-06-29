@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.Profiling;
@@ -24,6 +25,7 @@ public class ChunkDrawer : MonoBehaviour {
 
     private Vector3 vecpos;
     private Position pos;
+    private float viewdist;
 
     private struct Args
     {
@@ -42,6 +44,11 @@ public class ChunkDrawer : MonoBehaviour {
 
     private void drawChunk(Chunk c, Chunk.Face incomingFace, float bottomLeftX, float bottomLeftY, float topRightX, float topRightY)
     {
+        if (Vector3.SqrMagnitude(c.getCenter() - vecpos) > viewdist * viewdist)
+        {
+            return;
+        }
+        //Debug.Log(c.getCoordinates() + ": " + c.getCenter() + ": " + Vector3.Magnitude(c.getCenter() - vecpos));
         Vector3[] corners = new Vector3[8];
         Args arg;
         Stack<Args> stack = new Stack<Args>();
@@ -141,6 +148,12 @@ public class ChunkDrawer : MonoBehaviour {
                 if (enableDebugColors) c.setDebugColor(Color.blue);
                 continue;
             }
+            if (behind > 0)
+            {
+                minX = minY = 0;
+                maxX = Camera.main.pixelWidth;
+                maxY = Camera.main.pixelHeight;
+            }
             if (minX >= topRightX || minY >= topRightY || maxX <= bottomLeftX || maxY <= bottomLeftY)
             {
                 //Chunk outside FOV
@@ -203,6 +216,7 @@ public class ChunkDrawer : MonoBehaviour {
 	void Update () {
         
         pos = MovementController.feetPosition.above();
+        viewdist = World.getMaxViewDistance() * Chunk.size * 1.0f;
         vecpos = -MovementController.worldParent.transform.position;
         //pos = new Position(0, 0, 0);
         if (pos.getChunk() != null)
@@ -226,9 +240,10 @@ public class ChunkDrawer : MonoBehaviour {
             {
                 foreach (Chunk c in World.getChunks().Values)
                 {
+                    if (!c.isLoaded()) continue;
                     invisibleChunks.Add(c);
                     if (enableDebugColors) c.setDebugColor(Color.yellow);
-                    if (((Coordinates)c.getCenter()).distanceTo(pos) < 1.1 * Chunk.size)
+                    /*if (((Coordinates)c.getCenter()).distanceTo(pos) < 1.1 * Chunk.size)
                     {
                         Chunk c2 = c;
                         Chunk.Face best = c2.getFaces()[0];
@@ -240,15 +255,19 @@ public class ChunkDrawer : MonoBehaviour {
                             }
                         }
                         startfaces.Add(best);
-                    }
+                    }*/
                 }
+            }
+            foreach (var face in pos.getChunk().getFaces())
+            {
+                startfaces.Add(face);
             }
 
             chunksProcessed = new HashSet<Chunk>();
             foreach (Chunk.Face f in startfaces)
             {
-                invisibleChunks.Remove(f.getChunk());
-                f.getChunk().setRendered(true);
+                //invisibleChunks.Remove(f.getChunk());
+                //f.getChunk().setRendered(true);
                 Profiler.BeginSample("drawchunks");
                 drawChunk(f.getChunk(), f, 0, 0, Camera.main.pixelWidth, Camera.main.pixelHeight);
                 Profiler.EndSample();
@@ -258,10 +277,10 @@ public class ChunkDrawer : MonoBehaviour {
             {
                 c.setRendered(enableDebugColors);
             }
+            //Debug.Log("Hiding " + invisibleChunks.Count + " / " + World.getChunks().Count + " viewdist " + (int)(viewdist / Chunk.size));
             Profiler.EndSample();
             if (interestingChunks != null)
             {
-                float viewdist = World.getMaxViewDistance() * Chunk.size;
                 float score, best = float.MaxValue;
                 Vector3 toChunk;
                 Vector3 view = Camera.main.transform.forward.normalized;

@@ -18,7 +18,8 @@ public class ChunkManager
     private static ChunkManager singleton = new ChunkManager(16, "saves");
     private static Dictionary<string, object> fileLocks = new Dictionary<string, object>();
 
-    static ChunkManager() {
+    static ChunkManager()
+    {
         for (int i = 0; i < threads; i++)
         {
             Thread worker = new Thread(ProcessTasks);
@@ -58,12 +59,21 @@ public class ChunkManager
                     {
                         Debug.Log("Loaded first 200 chunks in " + DateTime.Now.Subtract(startTime));
                     }
-                    if (task.chunkdata != null)
+                    switch (task.task)
                     {
-                        singleton.SaveChunk(task.chunk, task.chunkdata);
-                    }else if (!task.chunk.isLoaded())
-                    {
-                        singleton.LoadChunk(task.chunk);
+                        case TaskType.shutdown:
+                            tasks.Enqueue(new FSTask(null, TaskType.shutdown));
+                            Debug.Log("Chunk Manager Worker shut down.");
+                            return;
+
+                        case TaskType.save:
+                            if (!task.chunk.isModifiedSinceSave()) break;
+                            Debug.Log("Chunk Manager Worker saving chunk " + task.chunk + "...");
+                            singleton.SaveChunk(task.chunk);
+                            break;
+                        case TaskType.load:
+                            singleton.LoadChunk(task.chunk);
+                            break;
                     }
                 }
                 else
@@ -78,10 +88,10 @@ public class ChunkManager
         }
     }
 
-    public static void RequestChunkSave(Chunk chunk, byte[] data)
+    public static void RequestChunkSave(Chunk chunk)
     {
         //Can be later optimized to batch saves of nearby chunks
-        tasks.Enqueue(new FSTask(chunk, data));
+        tasks.Enqueue(new FSTask(chunk, TaskType.save));
     }
 
     private static object requestFileLock(string path)
@@ -93,8 +103,10 @@ public class ChunkManager
         }
     }
 
-    private void SaveChunk(Chunk chunk, byte[] chunkdata)
+    private void SaveChunk(Chunk chunk)
     {
+        byte[] chunkdata = chunk.serialize();
+        chunk.saved();
         int bx = div_floor(chunk.getX(), size);
         int by = div_floor(chunk.getY(), size);
         int bz = div_floor(chunk.getZ(), size);
@@ -139,7 +151,7 @@ public class ChunkManager
                 }
             }
             if (chunkdata.Length > 0)
-            Debug.Log("Insert " + chunkdata.Length + " Bytes at Byte " + space);
+                Debug.Log("Insert " + chunkdata.Length + " Bytes at Byte " + space);
 
             for (int i = 0; i < 4; i++)
             {
@@ -151,16 +163,23 @@ public class ChunkManager
                 result[space + i + 4] = chunkdata[i];
             }
 
-            File.WriteAllBytes(file, result);
+            File.WriteAllBytes(file + ".tmp", result);
+            if (File.Exists(file)) File.Delete(file);
+            File.Move(file + ".tmp", file);
         }
+    }
+
+    public static void shutdown()
+    {
+        tasks.Enqueue(new FSTask(null, TaskType.shutdown));
     }
 
     public static void RequestChunkLoad(Chunk chunk)
     {
         //Can be optimized to load nearby chunks as well to reduce FS load
-        tasks.Enqueue(new FSTask(chunk, null));
+        tasks.Enqueue(new FSTask(chunk, TaskType.load));
     }
-    
+
     private static byte[] buffer = new byte[16384];
     private static byte[] intbuf = new byte[4];
 
@@ -178,22 +197,30 @@ public class ChunkManager
                 chunk.deserialize(buffer, 0);
                 return;
             } //Region does not exist
-
             using (Stream source = File.OpenRead(file))
             {
                 int chunkLength;
                 Chunk c;
                 for (int pos = 0; pos < size * size * size; pos++)
                 {
-                    source.Read(intbuf, 0, intbuf.Length);
-                    chunkLength = BitConverter.ToInt32(intbuf, 0);
                     Coordinates coords = new Coordinates(pos % size + size * bx, (pos / size) % size + size * by, pos / (size * size) + size * bz);
-                    if (chunkLength > buffer.Length)
+                    try
                     {
-                        Debug.LogWarning("Buffer overflow for chunk " + coords + ": " + chunkLength + " in region " + file);
-                        chunkLength = buffer.Length;
+                        source.Read(intbuf, 0, intbuf.Length);
+                        chunkLength = BitConverter.ToInt32(intbuf, 0);
+                        if (chunkLength > buffer.Length)
+                        {
+                            Debug.LogWarning("Buffer overflow for chunk " + coords + ": " + chunkLength + " in region " + file);
+                            chunkLength = buffer.Length;
+                        }
+                        source.Read(buffer, 0, chunkLength);
+
                     }
-                    source.Read(buffer, 0, chunkLength);
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning("Invalid chunk data for chunk at " + coords + " in file: " + file + " ex:" + ex);
+                        chunkLength = 0;
+                    }
                     c = World.getChunk(coords, true);
                     if (c != null && !c.isLoaded()) c.deserialize(buffer, chunkLength);
                 }
@@ -210,15 +237,20 @@ public class ChunkManager
         return q;
     }
 
+    private enum TaskType
+    {
+        save, load, shutdown
+    }
+
     private struct FSTask
     {
-        public readonly byte[] chunkdata;
         public readonly Chunk chunk;
+        public readonly TaskType task;
 
-        public FSTask(Chunk chunk, byte[] data)
+        public FSTask(Chunk chunk, TaskType task)
         {
             this.chunk = chunk;
-            chunkdata = data;
+            this.task = task;
         }
     }
 }

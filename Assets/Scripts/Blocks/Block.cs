@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System;
 
 [Serializable]
-public class Block
+public abstract class Block
 {
 
     protected Coordinates coords;
@@ -19,12 +19,9 @@ public class Block
     {
         this.coords = coords;
     }
-    
 
-    public virtual Field unload()
-    {
-        return null;
-    }
+
+    public abstract Field unload();
 
 
     public void setDebugColor(Color color)
@@ -32,21 +29,7 @@ public class Block
         /*if (!Profiler.enabled || block == null) return;
         block.GetComponent<MeshRenderer>().material.color = color;*/
     }
-
-    protected virtual void instantiate()
-    {
-        //if (block == null) block = BlockFactory.instantiate(this);
-    }
-
-    protected virtual void destroy()
-    {
-        /*if (block != null)
-        {
-            BlockFactory.destroy(this);
-            block = null;
-        }*/
-    }
-
+    
     public Coordinates getCoordinates()
     {
         return coords;
@@ -73,14 +56,12 @@ public class Block
         return getMeshID(coords);
     }
 
-    public virtual short getMeshID(Coordinates coords)
-    {
-        return (short)((coords.GetHashCode() % 13 + 13) % 13 % 4);
-    }
-
     public virtual bool isTransparent()
     {
-        return false;
+        return true;
     }
+
+    public abstract short getMeshID(Coordinates coords);
+    
 
 }

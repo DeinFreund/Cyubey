@@ -47,27 +47,7 @@ public class Perlin : IGenerator {
             offsetsZ[i] = (float)rnd.NextDouble() * 1000;
         }
         this.seed = seed;
-
-        if (false && sizeSkip == 1)
-        {
-            int s = 512;
-            for (int z = 0; z < 5; z++)
-            {
-                StringBuilder img = new StringBuilder();
-                img.Append("P2\n" + s + " " + s + "\n128\n");
-
-                for (int x = 0; x < s; x++)
-                {
-                    for (int y = 0; y < s; y++)
-                    {
-                        img.Append((int)(Mathf.Pow(getValue(x, y, z), 2f) * 128));
-                        img.Append(' ');
-                    }
-                    img.Append('\n');
-                }
-                FileIO.write("img" + z + ".pgm", img.ToString());
-            }
-        }
+        
     }
 
     private int nextPrime(int start)
@@ -112,68 +92,43 @@ public class Perlin : IGenerator {
     {
         return v0 * (1 - fac) + v1 * fac;
     }
+    
 
-    public float getValue(Coordinates coords)
+    public void fillArray(Coordinates coords, float[,,] array)
     {
-        return getValue(coords.getX(), coords.getY(), coords.getZ());
-    }
+        /*getValues(coords, coords + new Coordinates(array.GetLength(0), array.GetLength(1), array.GetLength(2)), array);
+        return;*/
+        float fx, fy, fz;
 
-    public float getValue(int x, int y, int z)
-    {
-        float result = 0;
-        float fx, fy, fz;
-        fx = x;
-        fy = y;
-        fz = z;
-        fx /= (1 << sizeSkip);
-        fy /= (1 << sizeSkip);
-        fz /= (1 << sizeSkip);
-        for (int i = 0; i < weights.Length; ++i)
+        int x, y, z, i;
+        float result;
+        for (x = 0; x < array.GetLength(0); x++)
         {
-            result += weights[i] * (float)SimplexNoise.noise(fx - offsetsX[i], fy - offsetsY[i], fz - offsetsZ[i]);
-            fx /= 2;
-            fy /= 2;
-            fz /= 2;
+            for (y = 0; y < array.GetLength(1); y++)
+            {
+                for (z = 0; z < array.GetLength(2); z++)
+                {
+                    result = 0;
+                    fx = x + coords.x;
+                    fy = y + coords.y;
+                    fz = z + coords.z;
+                    fx /= (1 << sizeSkip);
+                    fy /= (1 << sizeSkip);
+                    fz /= (1 << sizeSkip);
+                    for (i = 0; i < weights.Length; ++i)
+                    {
+                        result += weights[i] * (float)SimplexNoise.noise(fx - offsetsX[i], fy - offsetsY[i], fz - offsetsZ[i]);
+                        fx /= 2;
+                        fy /= 2;
+                        fz /= 2;
+                    }
+                    array[x, y, z] = result / totweights;
+                }
+            }
         }
-        return result / totweights;
-        /*
-        float totweights = 0;
-        float result = 0;
-        float fx, fy, fz;
-        x += 1000;
-        y += 1000;
-        z += 1000;
-        fx = x;
-        fy = y;
-        fz = z;
-        x >>= sizeSkip;
-        y >>= sizeSkip;
-        z >>= sizeSkip;
-        fx /= (1 << sizeSkip);
-        fy /= (1 << sizeSkip);
-        fz /= (1 << sizeSkip);
-        foreach (float weight in weights)
-        {
-            totweights += weight;
-            float ex0 = interp(random(x, y, z), random(x + 1, y, z), fx - x);
-            float ex1 = interp(random(x, y, z + 1), random(x + 1, y, z + 1), fx - x);
-            float ex2 = interp(random(x, y + 1, z), random(x + 1, y + 1, z), fx - x);
-            float ex3 = interp(random(x, y + 1, z + 1), random(x + 1, y + 1, z + 1), fx - x);
-            float ez0 = interp(ex0, ex1, fz - z);
-            float ez1 = interp(ex2, ex3, fz - z);
-            result += weight * interp(ez0, ez1, fy - y);
-            x >>= 1;
-            y >>= 1;
-            z >>= 1;
-            fx /= 2;
-            fy /= 2;
-            fz /= 2;
-        }
-        return result / totweights;*/
     }
-    public float[,,] getValues(Coordinates start, Coordinates end)
+    public void getValues(Coordinates start, Coordinates end, float[,,] retval)
     {
-        float[,,] retval = new float[end.x - start.x, end.y - start.y, end.z - start.z];
         for (int x = start.x; x < end.x; x++)
         {
             for (int y = start.y; y < end.y; y++)
@@ -210,6 +165,5 @@ public class Perlin : IGenerator {
                 }
             }
         }
-        return retval;
     }
 }

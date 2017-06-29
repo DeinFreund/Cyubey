@@ -34,8 +34,13 @@ public class World : MonoBehaviour {
     static int minViewDistance = 1;
     static int preloadDistance = 3;
     static int maxViewDistance = 8;
+    const int viewDistanceLimit = 12;
     float lastAlive;
     float curTime;
+    int lastFrame = 0;
+    float lastIncrease = 0;
+    float targetFPS = 30;
+    private bool running = true;
     // Update is called once per frame
     void Update()
     {
@@ -47,15 +52,27 @@ public class World : MonoBehaviour {
         if (Camera.main == null) return;
         if (Time.time - lastChunkCheck > 1.0)
         {
+            if (Time.frameCount - lastFrame < targetFPS)
+            {
+                maxViewDistance = Math.Max(minViewDistance, maxViewDistance - 1);
+                Debug.Log("Reducing render distance to " + maxViewDistance);
+                lastIncrease = Time.time;
+            }else if (Time.time - lastIncrease > 30)
+            {
+                lastIncrease = Time.time;
+                maxViewDistance = Math.Min(viewDistanceLimit, maxViewDistance + 1);
+                Debug.Log("Extending render distance to " + maxViewDistance);
+            }
             lock (chunks)
             {
                 Coordinates playerPos = MovementController.feetPosition.getChunkCoordinates();
                 lastChunkCheck = Time.time;
+                lastFrame = Time.frameCount;
                 HashSet<Coordinates> toUnload = new HashSet<Coordinates>();
                 foreach (KeyValuePair<Coordinates, Chunk> pair in chunks)
                 {
                     Chunk chunk = pair.Value;
-                    if (chunk.getCoordinates().distanceTo(playerPos) > maxViewDistance + 1)
+                    if (chunk.getCoordinates().distanceTo(playerPos) > Math.Max(preloadDistance, maxViewDistance) + 1)
                     {
                         toUnload.Add(pair.Key);
                     }
@@ -84,7 +101,7 @@ public class World : MonoBehaviour {
 
     private void generateChunks()
     {
-        while (true)
+        while (running)
         {
             try
             {
@@ -192,10 +209,16 @@ public class World : MonoBehaviour {
         }
     }
 
+    void shutdown()
+    {
+        running = false;
+    }
+
     void OnApplicationQuit()
     {
         lock (chunks)
         {
+            shutdown();
             if (ServerNetworkManager.isServer())
             {
                 Account.saveAccounts();
@@ -206,6 +229,7 @@ public class World : MonoBehaviour {
             {
                 c.unload();
             }
+            ChunkManager.shutdown();
         }
     }
 }

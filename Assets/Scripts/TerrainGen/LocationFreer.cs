@@ -29,14 +29,31 @@ public class LocationFreer : IGenerator
         outerRadii.Add(outerRadius);
     }
 
-    public float getValue(Coordinates coords)
+    public void fillArray(Coordinates coords, float[,,] array)
     {
-
-        float spawnchance = 1;
+        child.fillArray(coords, array);
+        int x, y, z;
         for (int i = 0; i < locations.Count; i++)
         {
-            spawnchance *= Math.Min(Math.Max((Vector3.ProjectOnPlane((Vector3)coords - locations[i], Vector3.zero).magnitude - innerRadii[i]) / (outerRadii[i] - innerRadii[i]), 0f), 1f);
+            Coordinates start = locations[i] - new Coordinates(1, 1, 1) * outerRadii[i] - coords;
+            Coordinates end = locations[i] + new Coordinates(1, 1, 1) * outerRadii[i] - coords;
+            int startx = Math.Max(start.x, 0);
+            int starty = Math.Max(start.y, 0);
+            int startz = Math.Max(start.z, 0);
+            int endx = Math.Min(end.x, array.GetLength(0));
+            int endy = Math.Min(end.y, array.GetLength(1));
+            int endz = Math.Min(end.z, array.GetLength(2));
+            float diff = outerRadii[i] - innerRadii[i];
+            for (x = startx; x < endx; x++)
+            {
+                for (y = starty; y < endy; y++)
+                {
+                    for (z = startz; z < endz; z++)
+                    {
+                        array[x, y, z] *= Math.Min(Math.Max((Vector3.ProjectOnPlane(new Vector3(coords.x + x, coords.y + y, coords.z + z) - locations[i], Vector3.zero).magnitude - innerRadii[i]) / (diff), 0f), 1f);
+                    }
+                }
+            }
         }
-        return child.getValue(coords) * spawnchance;
     }
 }

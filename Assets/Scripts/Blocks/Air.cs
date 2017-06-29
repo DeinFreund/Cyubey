@@ -9,12 +9,6 @@ public class Air : Block {
 
 
     public new const short ID = -1;
-    //public static new Type type = typeof(Air);
-
-    protected override void instantiate()
-    {
-
-    }
 
     public Air(Coordinates coords) : base(coords)
     {
@@ -25,14 +19,15 @@ public class Air : Block {
     {
         return ID;
     }
-
-    public override bool isTransparent()
-    {
-        return true;
-    }
+    
 
     public override short getID()
     {
         return ID;
+    }
+
+    public override Field unload()
+    {
+        return null;
     }
 }

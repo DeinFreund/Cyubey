@@ -9,9 +9,11 @@ public class BlockFactory : MonoBehaviour {
     public static Mesh[] blockmesh;
     public static Transform chunk;
     public static Transform playerPrefab;
+    public static Transform waterPrefab;
 
     public Transform[] _block;
     public Transform _chunk;
+    public Transform _waterPrefab;
     public Transform _playermodel;
 
     protected static Dictionary<int, HashSet<GameObject> > gopool = new Dictionary<int, HashSet<GameObject> >();
@@ -19,7 +21,7 @@ public class BlockFactory : MonoBehaviour {
 
     public void Awake()
     {
-        
+        waterPrefab = _waterPrefab;
         block = _block;
         chunk = _chunk;
         playerPrefab = _playermodel;
@@ -105,11 +107,14 @@ public class BlockFactory : MonoBehaviour {
         Block block;
         switch (TerrainCompositor.GetBlock(position))
         {
-            case Block.ID:
-                block = new Block(position);
+            case Rock.ID:
+                block = new Rock(position);
                 break;
             case Air.ID:
                 block = new Air(position);
+                break;
+            case Water.ID:
+                block = new Water(position);
                 break;
             default:
                 Debug.LogError("Unknown block ID: " + TerrainCompositor.GetBlock(position) + " at coordinates " + position);

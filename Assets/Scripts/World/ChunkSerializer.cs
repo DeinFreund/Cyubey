@@ -37,26 +37,33 @@ class ChunkSerializer
     public static BitArray[,] deserializeBlocks(Block[,,] blocks, byte[] serialized, int length)
     {
         if (length == 0) return null;
-        using (MemoryStream memStr = new MemoryStream(serialized, 0, length))
+        try
         {
-            using (DeflateStream compressed = new DeflateStream(memStr, CompressionMode.Decompress))
+            using (MemoryStream memStr = new MemoryStream(serialized, 0, length))
             {
-                BinaryFormatter bf = new BinaryFormatter();
-                BitArray[,] blocksModified = (BitArray[,])bf.Deserialize(compressed);
-                if (blocksModified.GetLength(0) != Chunk.size || blocksModified.GetLength(1) != Chunk.size)
+                using (DeflateStream compressed = new DeflateStream(memStr, CompressionMode.Decompress))
                 {
-                    Debug.LogError("Corrupt save, resetting chunk");
-                    return null;
+                    BinaryFormatter bf = new BinaryFormatter();
+                    BitArray[,] blocksModified = (BitArray[,])bf.Deserialize(compressed);
+                    if (blocksModified.GetLength(0) != Chunk.size || blocksModified.GetLength(1) != Chunk.size)
+                    {
+                        Debug.LogWarning("Corrupt save, resetting chunk");
+                        return null;
+                    }
+                    //Debug.Log("Deserialized chunk");
+                    for (int sx = 0; sx < Chunk.size; sx++)
+                        for (int sy = 0; sy < Chunk.size; sy++)
+                            if (blocksModified[sx, sy] != null)
+                                for (int sz = 0; sz < Chunk.size; sz++)
+                                    if (blocksModified[sx, sy][sz])
+                                        blocks[sx, sy, sz] = (Block)bf.Deserialize(compressed);
+                    return blocksModified;
                 }
-                Debug.Log("Deserialized chunk");
-                for (int sx = 0; sx < Chunk.size; sx++)
-                    for (int sy = 0; sy < Chunk.size; sy++)
-                        if (blocksModified[sx, sy] != null)
-                            for (int sz = 0; sz < Chunk.size; sz++)
-                                if (blocksModified[sx, sy][sz])
-                                    blocks[sx, sy, sz] = (Block)bf.Deserialize(compressed);
-                return blocksModified;
             }
+        }catch(Exception ex)
+        {
+            Debug.LogWarning("Corrupt save, resetting chunk: " + ex);
+            return null;
         }
     }
 
@@ -75,7 +82,7 @@ class ChunkSerializer
         if (serialized.Length == 0)
         {
             Debug.LogError("Null block given");
-            return new Block(new Coordinates());
+            return new Rock(new Coordinates());
         }
         MemoryStream memStr = new MemoryStream(serialized);
         memStr.Position = 0;
