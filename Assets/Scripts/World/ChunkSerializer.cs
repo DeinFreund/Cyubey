@@ -28,13 +28,13 @@ class ChunkSerializer
                         if (blocksModified[sx, sy] != null)
                             for (int sz = 0; sz < Chunk.size; sz++)
                                 if (blocksModified[sx, sy][sz])
-                                    bf.Serialize(compressed, blocks[sx, sy, sz]);
+                                    blocks[sx, sy, sz].serialize(memStr, bf);
             }
             return memStr.ToArray();
         }
     }
 
-    public static BitArray[,] deserializeBlocks(Block[,,] blocks, byte[] serialized, int length)
+    public static BitArray[,] deserializeBlocks(Block[,,] blocks, byte[] serialized, int length, bool serverBlocks)
     {
         if (length == 0) return null;
         try
@@ -56,7 +56,7 @@ class ChunkSerializer
                             if (blocksModified[sx, sy] != null)
                                 for (int sz = 0; sz < Chunk.size; sz++)
                                     if (blocksModified[sx, sy][sz])
-                                        blocks[sx, sy, sz] = (Block)bf.Deserialize(compressed);
+                                        blocks[sx, sy, sz] = deserializeBlock(compressed, bf, serverBlocks);
                     return blocksModified;
                 }
             }
@@ -72,22 +72,27 @@ class ChunkSerializer
 
         BinaryFormatter bf = new BinaryFormatter();
         MemoryStream memStr = new MemoryStream();
-        bf.Serialize(memStr, block);
+        block.serialize(memStr, bf);
         memStr.Position = 0;
         return memStr.ToArray();
     }
 
-    public static Block deserializeBlock(byte[] serialized)
+    public static Block deserializeBlock(byte[] serialized, bool serverBlock)
     {
         if (serialized.Length == 0)
         {
             Debug.LogError("Null block given");
-            return new Rock(new Coordinates());
+            return new Rock(new Coordinates(), serverBlock);
         }
         MemoryStream memStr = new MemoryStream(serialized);
         memStr.Position = 0;
         BinaryFormatter bf = new BinaryFormatter();
-        return (Block)bf.Deserialize(memStr);
+        return deserializeBlock(memStr, bf, serverBlock);
+    }
+
+    private static Block deserializeBlock(Stream memStr, BinaryFormatter bf, bool serverBlock)
+    {
+        return (bf.Deserialize(memStr) as BlockData).reconstruct(serverBlock);
     }
 
     private static SHA1CryptoServiceProvider sha1 = new SHA1CryptoServiceProvider();

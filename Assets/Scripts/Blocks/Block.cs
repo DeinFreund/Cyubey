@@ -2,12 +2,22 @@
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 
 [Serializable]
+public abstract class BlockData
+{
+    public Coordinates coords;
+
+    public abstract Block reconstruct(bool serverBlock);
+}
+
 public abstract class Block
 {
-
-    protected Coordinates coords;
+    protected readonly BlockData data;
+    protected Coordinates coords { get { return data.coords; } set { data.coords = value; } }
+    public readonly bool isServerBlock;
     //protected Position pos;
     //protected GameObject block;
 
@@ -15,21 +25,27 @@ public abstract class Block
     //public static Type type = typeof(Block);
 
 
-    public Block(Coordinates coords)
+    public Block(Coordinates coords, bool serverBlock, BlockData data)
     {
-        this.coords = coords;
+        this.data = data;
+        this.data.coords = coords;
+        this.isServerBlock = serverBlock;
     }
 
 
     public abstract Field unload();
 
+    public void serialize(Stream memStr, BinaryFormatter bf)
+    {
+        bf.Serialize(memStr, data);
+    }
 
     public void setDebugColor(Color color)
     {
         /*if (!Profiler.enabled || block == null) return;
         block.GetComponent<MeshRenderer>().material.color = color;*/
     }
-    
+
     public Coordinates getCoordinates()
     {
         return coords;
@@ -37,7 +53,7 @@ public abstract class Block
 
     public Position getPosition()
     {
-        return new Position(coords.x, coords.y, coords.z);
+        return (Position)coords;
     }
 
 
@@ -61,7 +77,12 @@ public abstract class Block
         return true;
     }
 
-    public abstract short getMeshID(Coordinates coords);
-    
+    public abstract void applyAction(BlockAction action);
 
+    public abstract short getMeshID(Coordinates coords);
+
+    public override string ToString()
+    {
+        return base.ToString() + "@" + coords;
+    }
 }

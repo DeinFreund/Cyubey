@@ -33,7 +33,8 @@ public class MainThread : MonoBehaviour {
 	void Update () {
 
         Action action;
-        if (events.TryDequeue(out action))
+        float time = Time.time;
+        while (events.TryDequeue(out action) && Time.time - time < 1f/60)
         {
             action.Invoke();
         }

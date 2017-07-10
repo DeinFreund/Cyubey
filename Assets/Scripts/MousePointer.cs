@@ -36,15 +36,15 @@ public class MousePointer : MonoBehaviour {
 
         if (Input.GetButtonDown("Fire1"))
         {
-            ClientNetworkManager.setBlock(selection, new Air(selection));
+            ClientNetworkManager.setBlock(selection, new Air(selection, false));
         }
         if (Input.GetButtonDown("Fire2"))
         {
-            ClientNetworkManager.setBlock(selection.above(), new Water(selection.above()));
+            ClientNetworkManager.setBlock(selection.above(), new Water(selection.above(), false, 1.0f));
         }
         if (Input.GetButtonDown("Fire3"))
         {
-            ClientNetworkManager.setBlock(selection.above(), new Rock(selection.above()));
+            ClientNetworkManager.setBlock(selection.above(), new Rock(selection.above(), false));
         }
     }
 }

@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
+
 public struct Position
 {
     public static readonly Position nil = new Position(2309583, 940358, 2039482);
 
     public readonly int x, y, z;
-    private Chunk chunk;
-    int xOff, yOff, zOff;
+    private readonly Chunk chunk;
+    private readonly int xOff, yOff, zOff;
     
     public Position(int locX, int locY, int locZ, Chunk chunk)
     {
@@ -31,6 +32,7 @@ public struct Position
         this.x = absX;
         this.y = absY;
         this.z = absZ;
+        if (chunk != null && !chunk.getCoordinates().Equals(getChunkCoordinates())) Debug.LogError("Invalid chunk position");
     }
 
     public int getX()
@@ -86,6 +88,17 @@ public struct Position
     {
         return offset(0, -1, 0);
     }
+    public List<Position> getNeighbours()
+    {
+        List<Position> ret = new List<Position>();
+        ret.Add(offset(0, 0, 1));
+        ret.Add(offset(0, 0, -1));
+        ret.Add(offset(0, 1, 0));
+        ret.Add(offset(0, -1, 0));
+        ret.Add(offset(1, 0, 0));
+        ret.Add(offset(-1, 0, 0));
+        return ret;
+    }
     public Block getBlock()
     {
         if (chunk == null) return NoBlock.noblock;
@@ -119,7 +132,7 @@ public struct Position
 
     public override string ToString()
     {
-        return getX() + "|" + getY() + "|" + getZ();
+        return getX() + "|" + getY() + "|" + getZ() + " " + chunk;
     }
 }
 

@@ -3,14 +3,21 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
-
 [Serializable]
+public class AirData : BlockData
+{
+    public override Block reconstruct(bool serverBlock)
+    {
+        return new Air(coords, serverBlock);
+    }
+}
+
 public class Air : Block {
 
 
     public new const short ID = -1;
 
-    public Air(Coordinates coords) : base(coords)
+    public Air(Coordinates coords, bool serverBlock) : base(coords, serverBlock, new AirData())
     {
 
     }
@@ -29,5 +36,10 @@ public class Air : Block {
     public override Field unload()
     {
         return null;
+    }
+
+    public override void applyAction(BlockAction action)
+    {
+        throw new NotImplementedException();
     }
 }

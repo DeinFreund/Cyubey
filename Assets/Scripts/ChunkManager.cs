@@ -78,7 +78,7 @@ public class ChunkManager
                 }
                 else
                 {
-                    Thread.Sleep(30);
+                    Thread.Sleep(100);
                 }
             }
             catch (Exception ex)

@@ -17,7 +17,7 @@ public class ClientNetworkManager
     static private TcpClient tcpClient;
     static private UdpClient udpClient;
     static private NetworkStream connection;
-    static private byte[] dataRcvBufTCP = new byte[1024];
+    static private byte[] dataRcvBufTCP = new byte[4096];
     static private IPEndPoint serverEndpoint;
     static private HashSet<Coordinates> receivedChunks = new HashSet<Coordinates>();
 
@@ -117,9 +117,9 @@ public class ClientNetworkManager
     {
         try
         {
-            Debug.Log("Received tcp from server at " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
+            //Debug.Log("Received tcp from server at " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
             Field message = new Field(data);
-            Debug.Log("Client Received message of type " + ((TCPMessageID)message.getField("messageID").getInt()) + "\n" + message);
+            //Debug.Log("Client Received message of type " + ((TCPMessageID)message.getField("messageID").getInt()) + "\n" + message);
             switch ((TCPMessageID)message.getField("messageID").getInt())
             {
                 case TCPMessageID.HELLO:
@@ -182,14 +182,16 @@ public class ClientNetworkManager
         }
     }
 
+    //server updates a block to client
     private static void updateBlock(Field message)
     {
         if (ServerNetworkManager.isServer()) return;
         Position pos = message.getField("pos").getCoordinates();
-        Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
+        Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes(), false);
         if (pos.getChunk() != null) MainThread.runAction(() => pos.getChunk().setBlock(pos, block));
     }
 
+    //client requests block update to server
     public static void setBlock(Position pos, Block block)
     {
         Field message = new Field();

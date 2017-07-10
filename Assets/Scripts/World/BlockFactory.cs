@@ -102,23 +102,24 @@ public class BlockFactory : MonoBehaviour {
         return block;
     }
 
-    public static Block create(Coordinates position)
+    public static Block create(Coordinates position, bool serverBlock, List<Liquid> liquids)
     {
         Block block;
         switch (TerrainCompositor.GetBlock(position))
         {
             case Rock.ID:
-                block = new Rock(position);
+                block = new Rock(position, serverBlock);
                 break;
             case Air.ID:
-                block = new Air(position);
+                block = new Air(position, serverBlock);
                 break;
             case Water.ID:
-                block = new Water(position);
+                block = new Water(position, serverBlock, 1);
+                liquids.Add(block as Liquid);
                 break;
             default:
                 Debug.LogError("Unknown block ID: " + TerrainCompositor.GetBlock(position) + " at coordinates " + position);
-                block = new Air(position);
+                block = new Air(position, serverBlock);
                 break;
         }
         return block;

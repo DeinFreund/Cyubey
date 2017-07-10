@@ -4,7 +4,8 @@ using System;
 using System.Net;
 using System.Text;
 
-public class Client {
+public class Client
+{
     //serverside player
 
     TcpClient tcpClient;
@@ -31,7 +32,7 @@ public class Client {
         tcpClient = player;
         clientEndpoint = (tcpClient.Client.RemoteEndPoint as IPEndPoint);
         connection = tcpClient.GetStream();
-        connection.BeginRead(this.dataRcvBufTCP, 0,this.dataRcvBufTCP.Length, new AsyncCallback(this.receiveBytesTCP), null);
+        connection.BeginRead(this.dataRcvBufTCP, 0, this.dataRcvBufTCP.Length, new AsyncCallback(this.receiveBytesTCP), null);
         send(TCPMessageID.HELLO, new Field());
         Debug.Log("New connection from " + (player.Client.RemoteEndPoint as IPEndPoint).Address);
         Debug.Log(player);
@@ -100,9 +101,9 @@ public class Client {
     {
         try
         {
-            Debug.Log("Received tcp for client " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
+            //Debug.Log("Received tcp for client " + (tcpClient.Client.RemoteEndPoint as IPEndPoint));
             Field message = new Field(data);
-            Debug.Log("Server Received message of type " + ((TCPMessageID)message.getField("messageID").getInt()) + "\n" + message);
+            //Debug.Log("Server Received message of type " + ((TCPMessageID)message.getField("messageID").getInt()) + "\n" + message);
             switch ((TCPMessageID)message.getField("messageID").getInt())
             {
                 case TCPMessageID.LOGIN_REQUEST:
@@ -193,7 +194,8 @@ public class Client {
         if (World.getChunk(coords) != null)
         {
             hash = World.getChunk(coords).hash();
-        }else
+        }
+        else
         {
             hash = new byte[0];
         }
@@ -206,8 +208,10 @@ public class Client {
     void setBlock(Field message)
     {
         Position pos = message.getField("pos").getCoordinates();
-        Block block = ChunkSerializer.deserializeBlock(message.getField("block").getBytes());
-        MainThread.runAction(() => pos.getChunk().setBlock(pos, block));
+        lock (BlockThread.actionLock)
+        {
+            pos.getChunk().setBlock(pos, ChunkSerializer.deserializeBlock(message.getField("block").getBytes(), true));
+        }
     }
 
 
@@ -266,12 +270,29 @@ public class Client {
         {
             message.addField("messageID").setInt((int)id);
             message.addField("messageCounter" + messageCounter++).setInt((int)id);
-            Debug.Log("Sent to " + clientEndpoint + ": " + message);
-            byte[] compressed = message.compress();
-            connection.Write(compressed, 0, compressed.Length);
+            //Debug.Log("Sent to " + clientEndpoint + ": " + message);
+            bool invalid = true;
+            for (int i = 0; i < 5 && invalid; i++)
+            {
+                invalid = false;
+                byte[] compressed = message.compress();
+                try
+                {
+                    new Field(compressed);
+                }
+                catch (Exception ex)
+                {
+                    invalid = true;
+                    Debug.LogWarning("Tried to send invalid message\n" + ex);
+                    continue;
+                }
+                connection.Write(compressed, 0, compressed.Length);
+                return;
+            }
+            Debug.LogError("Unable to compress message\n" + message);
         }
     }
-    
+
 
     public Account getAccount()
     {

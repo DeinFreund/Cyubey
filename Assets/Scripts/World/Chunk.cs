@@ -9,6 +9,8 @@ using UnityEngine.Profiling;
 public class Chunk
 {
     public const int size = 16;
+    
+    protected static HashSet<Position> blockChangeListeners = new HashSet<Position>();
 
     protected int x, y, z;
     protected Coordinates coords;
@@ -22,6 +24,9 @@ public class Chunk
     protected readonly Position centerpos;
     protected bool terrainReady;
     protected bool deserialized;
+    protected bool faceRecalculationNeeded = true;
+    protected bool terrainMeshRebuildingNeeded = true;
+    protected bool fluidMeshRebuildingNeeded = true;
 
     protected bool loaded = false; //has been deserialized
     protected ConcurrentQueue<KeyValuePair<Position, Block>> setBlockQueue = new ConcurrentQueue<KeyValuePair<Position, Block>>();
@@ -65,7 +70,7 @@ public class Chunk
         lock (blocks)
         {
             //Profiler.BeginSample("Loading chunks");
-            blocksModified = ChunkSerializer.deserializeBlocks(blocks, data, length);
+            blocksModified = ChunkSerializer.deserializeBlocks(blocks, data, length, ServerNetworkManager.isServer());
             deserialized = true;
             untouchedChunk = length == 0;
             finishInitialization();
@@ -79,6 +84,8 @@ public class Chunk
             if (!terrainReady) return;
             if (loaded) return;
             int x, y, z;
+            bool isServer = ServerNetworkManager.isServer();
+            List<Liquid> liquids = new List<Liquid>();
             for (x = 0; x < size; x++)
             {
                 for (y = 0; y < size; y++)
@@ -87,7 +94,7 @@ public class Chunk
                     {
                         for (z = 0; z < size; z++)
                         {
-                            blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z));
+                            blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), isServer, liquids);
                         }
                     }
                     else if (blocksModified[x, y] != null)
@@ -96,10 +103,19 @@ public class Chunk
                         {
                             if (!blocksModified[x, y][z])
                             {
-                                blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z));
+                                blocks[x, y, z] = BlockFactory.create(new Coordinates(x + size * this.x, y + size * this.y, z + size * this.z), isServer, liquids);
                             }
                         }
                     }
+                }
+            }
+
+            foreach (Liquid liquid in liquids)
+            {
+                if (!fluids.ContainsKey(liquid.getPrefab()))
+                {
+                    fluids.Add(liquid.getPrefab(), null);
+                    MainThread.runAction(() => fluids[liquid.getPrefab()] = GameObject.Instantiate(liquid.getPrefab(), empty.transform).gameObject);
                 }
             }
 
@@ -153,85 +169,28 @@ public class Chunk
     }
 
     private static int[] meshes = new int[size * size * size];
+    private static float[] meshHeight = new float[size * size * size];
     private static Vector3[] positions = new Vector3[size * size * size];
     private static CombineInstance[] combine = new CombineInstance[size * size * size / 2];
     private static Mesh nothing = new Mesh();
     private static Liquid liquid;
     public void rebuildMesh()
     {
-
-        Profiler.BeginSample("Building chunk terrain mesh");
-        
-        Profiler.BeginSample("Reading meshes");
-        int count = 0;
-        for (int x = 0; x < size; x++)
+        if (terrainMeshRebuildingNeeded)
         {
-            for (int y = 0; y < size; y++)
-            {
-                for (int z = 0; z < size; z++)
-                {
-                    if (!getBlock(x, y, z).isTransparent() && (getBlock(x, y, z + 1).isTransparent() || getBlock(x, y, z - 1).isTransparent() || getBlock(x, y + 1, z).isTransparent()
-                            || getBlock(x, y - 1, z).isTransparent() || getBlock(x + 1, y, z).isTransparent() || getBlock(x - 1, y, z).isTransparent()))
-                    {
-                        meshes[count] = getBlock(x, y, z).getMeshID();
-                        positions[count++] = new Vector3(x, y, z);
-                    }else if (getBlock(x,y,z).getMeshID() >= 0 && getBlock(x, y, z).isTransparent() && getBlock(x,y,z) is Liquid)
-                    {
-                        liquid = (Liquid) getBlock(x, y, z);
-                        if (!fluids.ContainsKey(liquid.getPrefab())) fluids.Add(liquid.getPrefab(), GameObject.Instantiate(liquid.getPrefab(), empty.transform).gameObject);
-                    }
-                }
-            }
-        }
-        Profiler.EndSample();
-        Profiler.BeginSample("Combining meshes");
-        Matrix4x4 transform = new Matrix4x4();
-        Vector4 vec4 = new Vector4();
-        for (int i = 0; i < count; i++)
-        {
-            combine[i].mesh = BlockFactory.blockmesh[meshes[i]];
-            vec4.Set(((3 * positions[i].z + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + ((3 * positions[i].z + 7) % 5 % 2) - 1);
-            //vec4.Set(-1, 0, 0, positions[i].x + 1);
-            //Debug.Log(new Vector4(((3 * i + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + 1 - ((3 * i + 7) % 5 % 2)));
-            //vec4.Set(1, 0, 0, positions[i].x);
-            transform.SetRow(0, vec4);
-            //vec4.Set(0, 1, 0, positions[i].y);
-            vec4.Set(0, ((17 * positions[i].x + 11) % 7 % 2) * 2 - 1, 0, positions[i].y + 1 - ((17 * positions[i].x + 11) % 7 % 2));
-            transform.SetRow(1, vec4);
-            //vec4.Set(0, 0, 1, positions[i].z);
-            vec4.Set(0, 0, ((29 * positions[i].x + 97) % 11 % 2) * 2 - 1, positions[i].z + 1 - ((29 * positions[i].x + 97) % 11 % 2));
-            transform.SetRow(2, vec4);
-            vec4.Set(0, 0, 0, 1);
-            transform.SetRow(3, vec4);
-            combine[i].transform = transform;
-        }
-        for (int i = count; i < combine.Length; i++)
-        {
-            combine[i].mesh = nothing;
-        }
-        Profiler.EndSample();
-        Profiler.BeginSample("Applying mesh");
-        empty.GetComponent<MeshFilter>().mesh = new Mesh();
-        empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
-        empty.SetActive(false);
-        empty.SetActive(true);
-        Profiler.EndSample();
-        Profiler.EndSample();
-
-        foreach (Transform liquidType in fluids.Keys)
-        {
-
-            Profiler.BeginSample("Building chunk fluid mesh");
+            terrainMeshRebuildingNeeded = false;
+            Profiler.BeginSample("Building chunk terrain mesh");
 
             Profiler.BeginSample("Reading meshes");
-            count = 0;
+            int count = 0;
             for (int x = 0; x < size; x++)
             {
                 for (int y = 0; y < size; y++)
                 {
                     for (int z = 0; z < size; z++)
                     {
-                        if (getBlock(x, y, z).getMeshID() >= 0 && getBlock(x, y, z).isTransparent() && getBlock(x, y, z) is Liquid)
+                        if (!getBlock(x, y, z).isTransparent() && (getBlock(x, y, z + 1).isTransparent() || getBlock(x, y, z - 1).isTransparent() || getBlock(x, y + 1, z).isTransparent()
+                                || getBlock(x, y - 1, z).isTransparent() || getBlock(x + 1, y, z).isTransparent() || getBlock(x - 1, y, z).isTransparent()))
                         {
                             meshes[count] = getBlock(x, y, z).getMeshID();
                             positions[count++] = new Vector3(x, y, z);
@@ -241,14 +200,21 @@ public class Chunk
             }
             Profiler.EndSample();
             Profiler.BeginSample("Combining meshes");
+            Matrix4x4 transform = new Matrix4x4();
+            Vector4 vec4 = new Vector4();
             for (int i = 0; i < count; i++)
             {
                 combine[i].mesh = BlockFactory.blockmesh[meshes[i]];
-                vec4.Set(1, 0, 0, positions[i].x);
+                vec4.Set(((3 * positions[i].z + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + ((3 * positions[i].z + 7) % 5 % 2) - 1);
+                //vec4.Set(-1, 0, 0, positions[i].x + 1);
+                //Debug.Log(new Vector4(((3 * i + 7) % 5 % 2) * 2 - 1, 0, 0, positions[i].x + 1 - ((3 * i + 7) % 5 % 2)));
+                //vec4.Set(1, 0, 0, positions[i].x);
                 transform.SetRow(0, vec4);
-                vec4.Set(0, 1, 0, positions[i].y);
+                //vec4.Set(0, 1, 0, positions[i].y);
+                vec4.Set(0, ((17 * positions[i].x + 11) % 7 % 2) * 2 - 1, 0, positions[i].y + 1 - ((17 * positions[i].x + 11) % 7 % 2));
                 transform.SetRow(1, vec4);
-                vec4.Set(0, 0, 1, positions[i].z);
+                //vec4.Set(0, 0, 1, positions[i].z);
+                vec4.Set(0, 0, ((29 * positions[i].x + 97) % 11 % 2) * 2 - 1, positions[i].z + 1 - ((29 * positions[i].x + 97) % 11 % 2));
                 transform.SetRow(2, vec4);
                 vec4.Set(0, 0, 0, 1);
                 transform.SetRow(3, vec4);
@@ -260,13 +226,78 @@ public class Chunk
             }
             Profiler.EndSample();
             Profiler.BeginSample("Applying mesh");
-            GameObject empty = fluids[liquidType];
             empty.GetComponent<MeshFilter>().mesh = new Mesh();
             empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
             empty.SetActive(false);
             empty.SetActive(true);
             Profiler.EndSample();
             Profiler.EndSample();
+        }
+
+        if (fluidMeshRebuildingNeeded)
+        {
+            fluidMeshRebuildingNeeded = false;
+            Matrix4x4 transform = new Matrix4x4();
+            Vector4 vec4 = new Vector4();
+            foreach (Transform liquidType in fluids.Keys)
+            {
+                if (fluids[liquidType] == null)
+                {
+                    Debug.LogWarning("Missing fluid transform, requeuing");
+                    fluidMeshRebuildingNeeded = true;
+                    MainThread.runAction(() => rebuildMesh());
+                    return;
+                }
+                Profiler.BeginSample("Building chunk fluid mesh");
+
+                Profiler.BeginSample("Reading meshes");
+                int count = 0;
+                Liquid liq;
+                for (int x = 0; x < size; x++)
+                {
+                    for (int y = 0; y < size; y++)
+                    {
+                        for (int z = 0; z < size; z++)
+                        {
+                            liq = getBlock(x, y, z) as Liquid;
+                            if (liq != null && liq.getMeshID() >= 0 && liq.level > 0.00001)
+                            {
+                                meshes[count] = liq.getMeshID();
+                                meshHeight[count] = liq.level;
+                                positions[count++] = new Vector3(x, y, z);
+                            }
+                        }
+                    }
+                }
+                Profiler.EndSample();
+                Profiler.BeginSample("Combining meshes");
+                for (int i = 0; i < count; i++)
+                {
+                    combine[i].mesh = BlockFactory.blockmesh[meshes[i]];
+                    vec4.Set(1, 0, 0, positions[i].x);
+                    transform.SetRow(0, vec4);
+                    vec4.Set(0, meshHeight[i], 0, positions[i].y);
+                    transform.SetRow(1, vec4);
+                    vec4.Set(0, 0, 1, positions[i].z);
+                    transform.SetRow(2, vec4);
+                    vec4.Set(0, 0, 0, 1);
+                    transform.SetRow(3, vec4);
+                    combine[i].transform = transform;
+                }
+                for (int i = count; i < combine.Length; i++)
+                {
+                    combine[i].mesh = nothing;
+                }
+                Profiler.EndSample();
+                Profiler.BeginSample("Applying mesh");
+                GameObject empty = fluids[liquidType];
+                empty.GetComponent<MeshFilter>().mesh = new Mesh();
+                empty.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
+                empty.SetActive(false);
+                empty.SetActive(true);
+                Profiler.EndSample();
+                Profiler.EndSample();
+            }
         }
     }
 
@@ -310,7 +341,7 @@ public class Chunk
         }
         foreach (GameObject empty in fluids.Values)
         {
-            empty.GetComponent<MeshRenderer>().enabled = value;
+            if (empty != null) empty.GetComponent<MeshRenderer>().enabled = value;
         }
         Profiler.EndSample();
     }
@@ -396,11 +427,36 @@ public class Chunk
     {
         return (x >= 0 && y >= 0 && z >= 0 && x < size && y < size && z < size) ? blocks[x, y, z] : NoBlock.noblock;
     }
+
+    public void addNeighbourChangeListener(Block listener)
+    {
+        lock (blockChangeListeners)
+        {
+            blockChangeListeners.Add(listener.getPosition());
+        }
+    }
     //called by blocks if they have been modified, alerting the chunk that their content has changed
-    public void blockUpdated(Block b)
+    public void blockUpdated(Block b, bool meshChange)
     {
         modifiedSinceSave = true;
         untouchedChunk = false;
+        if (meshChange)
+        {
+            fluidMeshRebuildingNeeded = fluidMeshRebuildingNeeded || b is Liquid;
+            terrainMeshRebuildingNeeded = terrainMeshRebuildingNeeded || b is Solid;
+            if (isInstantiated) MainThread.runAction(() => rebuildMesh());
+        }
+
+        lock (blockChangeListeners)
+        {
+            foreach (Position n in b.getPosition().getNeighbours())
+            {
+                if (blockChangeListeners.Contains(n))
+                {
+                    BlockThread.queueAction(new BlockChanged(b, n.getBlock()));
+                }
+            }
+        }
     }
     //call if a block in the chunk has been added/removed
     public void setBlock(Position p, Block b)
@@ -408,15 +464,27 @@ public class Chunk
         setBlock(p, b, true);
     }
     protected void setBlock(Position p, Block b, bool recalculateConnections)
-    { 
+    {
+        Debug.Log("set " + p + " to " + b + " from " + p.getBlock() + " in " + this);
         if (!loaded)
         {
             setBlockQueue.Enqueue(new KeyValuePair<Position, Block>(p, b));
             return;
         }
+
+
         lock (blocks)
         {
-            Debug.Log("Updating block at " + p.getRelativeCoords() + " (" + p + ")");
+            if (b.getMeshID() >= 0 && b.isTransparent())
+            {
+                liquid = b as Liquid;
+                if (liquid != null && !fluids.ContainsKey(liquid.getPrefab()))
+                {
+                    fluids.Add(liquid.getPrefab(), null);
+                    MainThread.runAction(() => fluids[liquid.getPrefab()] = GameObject.Instantiate(liquid.getPrefab(), empty.transform).gameObject);
+                }
+            }
+            //Debug.Log("Updating block at " + p.getRelativeCoords() + " (" + p + ")");
             ServerNetworkManager.updateBlock(p, b);
             if (blocksModified == null)
             {
@@ -429,15 +497,21 @@ public class Chunk
             blocksModified[p.getRelativeX(), p.getRelativeY()][p.getRelativeZ()] = true;
             untouchedChunk = false;
             modifiedSinceSave = true;
+            fluidMeshRebuildingNeeded = fluidMeshRebuildingNeeded || blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] is Liquid || b is Liquid;
+            terrainMeshRebuildingNeeded = terrainMeshRebuildingNeeded || blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] is Solid || b is Solid;
             blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = b;
+            
+            faceRecalculationNeeded = true;
             if (recalculateConnections)
             {
-                recalculateFaceConnections();
+                BackgroundThread.runAction(() => recalculateFaceConnections());
                 if (isInstantiated)
                 {
-                    rebuildMesh();
+                    MainThread.runAction(() => rebuildMesh());
                 }
             }
+
+            Debug.Log("now " + p.getBlock() + " | " + b);
         }
     }
     List<Face> _faces;
@@ -445,14 +519,17 @@ public class Chunk
     private static Stack<int> stk = new Stack<int>(10000);
     public void recalculateFaceConnections()
     {
+        if (!faceRecalculationNeeded) return;
         lock (stk)
         {
+            if (!faceRecalculationNeeded) return;
+            faceRecalculationNeeded = false;
             bool[,,] visited = new bool[size, size, size];
+            _faces = new List<Face>();
             foreach (Face f in faces)
             {
-                f.connectedFaces = new HashSet<Face>();
+                _faces.Add(new Face(f.getChunk(), f.getNormal()));
             }
-            _faces = new List<Face>(faces);
 
 
             //Profiler.BeginSample("Recalculating Face Connections");
@@ -479,13 +556,13 @@ public class Chunk
                             if (!getBlock(locX, locY, locZ).isTransparent()) continue;
 
                             visited[locX, locY, locZ] = true;
-                            for (i = 0; i < faces.Count; i++)
+                            for (i = 0; i < _faces.Count; i++)
                             {
-                                if (faces[i].isFaceBlock(locX, locY, locZ))
+                                if (_faces[i].isFaceBlock(locX, locY, locZ))
                                 {
-                                    faceset.Add(faces[i]);
+                                    faceset.Add(_faces[i]);
                                 }
-                                stk.Push((locX + faces[i].nX) | ((locY + faces[i].nY) << 8) | ((locZ + faces[i].nZ) << 16));
+                                stk.Push((locX + _faces[i].nX) | ((locY + _faces[i].nY) << 8) | ((locZ + _faces[i].nZ) << 16));
                             }
                         }
                         foreach (Face f1 in faceset)
@@ -496,6 +573,8 @@ public class Chunk
                             }
                         }
                     }
+
+            faces = _faces;
         }
         //Profiler.EndSample();
 
@@ -573,12 +652,15 @@ public class Chunk
         public Face getOpposingFace()
         {
             if (opposingFace != null) return opposingFace;
+            Profiler.BeginSample("getopposingface");
             Chunk next = World.getChunk(chunk.getCoordinates() + getNormal());
             if (next != null)
             {
                 opposingFace = next.getFaceByNormal(-1 * getNormal());
+                Profiler.EndSample();
                 return opposingFace;
             }
+            Profiler.EndSample();
             return null;
         }
         

@@ -54,9 +54,12 @@ public class World : MonoBehaviour {
         {
             if (Time.frameCount - lastFrame < targetFPS)
             {
-                maxViewDistance = Math.Max(minViewDistance, maxViewDistance - 1);
-                Debug.Log("Reducing render distance to " + maxViewDistance);
-                lastIncrease = Time.time;
+                if (maxViewDistance > minViewDistance)
+                {
+                    maxViewDistance = maxViewDistance - 1;
+                    Debug.Log("Reducing render distance to " + maxViewDistance);
+                    lastIncrease = Time.time;
+                }
             }else if (Time.time - lastIncrease > 30)
             {
                 lastIncrease = Time.time;
@@ -225,6 +228,8 @@ public class World : MonoBehaviour {
                 ServerNetworkManager.shutdown();
             }
             ClientNetworkManager.shutdown();
+            BlockThread.shutdown();
+            BackgroundThread.shutdown();
             foreach (Chunk c in chunks.Values)
             {
                 c.unload();
