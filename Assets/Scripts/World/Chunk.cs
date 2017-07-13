@@ -9,8 +9,8 @@ using UnityEngine.Profiling;
 public class Chunk
 {
     public const int size = 16;
-    
-    protected static HashSet<Position> blockChangeListeners = new HashSet<Position>();
+
+    protected static HashSet<Block> blockChangeListeners = new HashSet<Block>();
 
     protected int x, y, z;
     protected Coordinates coords;
@@ -57,12 +57,13 @@ public class Chunk
         if (!ServerNetworkManager.isServer())
         {
             ClientNetworkManager.requestChunk(getCoordinates());
-        }else
+        }
+        else
         {
             ChunkManager.RequestChunkLoad(this);
         }
     }
-    
+
 
     public void deserialize(byte[] data, int length)
     {
@@ -141,7 +142,7 @@ public class Chunk
     {
         return ChunkSerializer.serializeBlocks(blocksModified, blocks);
     }
-    
+
     public void saved()
     {
         //not really thread safe, hope it works
@@ -165,6 +166,8 @@ public class Chunk
         {
             if (f.getOpposingFace() != null) f.getOpposingFace().opposingFace = null;
         }
+
+        blockChangeListeners.RemoveWhere(c => c.getCoordinates().getChunkCoordinates() == getCoordinates());
         ChunkManager.RequestChunkSave(this);
     }
 
@@ -410,7 +413,7 @@ public class Chunk
     }
     public Face getFaceByNormal(Coordinates normal)
     {
-        foreach(Face f in faces)
+        foreach (Face f in faces)
         {
             if (f.getNormal().Equals(normal))
             {
@@ -428,11 +431,11 @@ public class Chunk
         return (x >= 0 && y >= 0 && z >= 0 && x < size && y < size && z < size) ? blocks[x, y, z] : NoBlock.noblock;
     }
 
-    public void addNeighbourChangeListener(Block listener)
+    public static void addNeighbourChangeListener(Block listener)
     {
         lock (blockChangeListeners)
         {
-            blockChangeListeners.Add(listener.getPosition());
+            blockChangeListeners.Add(listener);
         }
     }
     //called by blocks if they have been modified, alerting the chunk that their content has changed
@@ -451,7 +454,7 @@ public class Chunk
         {
             foreach (Position n in b.getPosition().getNeighbours())
             {
-                if (blockChangeListeners.Contains(n))
+                if (blockChangeListeners.Contains(n.getBlock()))
                 {
                     BlockThread.queueAction(new BlockChanged(b, n.getBlock()));
                 }
@@ -497,18 +500,19 @@ public class Chunk
             blocksModified[p.getRelativeX(), p.getRelativeY()][p.getRelativeZ()] = true;
             untouchedChunk = false;
             modifiedSinceSave = true;
-            fluidMeshRebuildingNeeded = fluidMeshRebuildingNeeded || blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] is Liquid || b is Liquid;
-            terrainMeshRebuildingNeeded = terrainMeshRebuildingNeeded || blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] is Solid || b is Solid;
+            fluidMeshRebuildingNeeded = fluidMeshRebuildingNeeded || blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] is Liquid;
+            terrainMeshRebuildingNeeded = terrainMeshRebuildingNeeded || blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] is Solid;
+            lock (blockChangeListeners)
+            {
+                blockChangeListeners.Remove(blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()]);
+            }
             blocks[p.getRelativeX(), p.getRelativeY(), p.getRelativeZ()] = b;
-            
+            blockUpdated(b, true);
+
             faceRecalculationNeeded = true;
             if (recalculateConnections)
             {
                 BackgroundThread.runAction(() => recalculateFaceConnections());
-                if (isInstantiated)
-                {
-                    MainThread.runAction(() => rebuildMesh());
-                }
             }
 
             Debug.Log("now " + p.getBlock() + " | " + b);
@@ -611,7 +615,7 @@ public class Chunk
             return false;
         }
 
-        
+
 
         public Chunk getChunk()
         {
@@ -643,7 +647,7 @@ public class Chunk
             return connectedFaces;
         }
 
-        
+
         int cnt = 0;
         int cnt2 = 0;
 
@@ -663,7 +667,7 @@ public class Chunk
             Profiler.EndSample();
             return null;
         }
-        
+
     }
 
     public override int GetHashCode()

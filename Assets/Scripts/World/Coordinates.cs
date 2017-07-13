@@ -47,6 +47,10 @@ public struct Coordinates
         return other is Coordinates && (Equals((Coordinates)other));
     }
 
+    public Coordinates getChunkCoordinates()
+    {
+        return this.div_floor(Chunk.size);
+    }
     public bool Equals(Coordinates other)
     {
         return other.getX() == getX() && other.getY() == getY() && other.getZ() == getZ();
@@ -70,6 +74,15 @@ public struct Coordinates
     public static Coordinates operator -(Coordinates c1, Coordinates c2)
     {
         return c1 + -1*c2;
+    }
+
+    public static bool operator ==(Coordinates c1, Coordinates c2)
+    {
+        return c1.Equals(c2);
+    }
+    public static bool operator !=(Coordinates c1, Coordinates c2)
+    {
+        return !c1.Equals(c2);
     }
 
     public static Coordinates operator *(int c1, Coordinates c2)

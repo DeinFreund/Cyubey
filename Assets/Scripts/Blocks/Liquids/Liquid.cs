@@ -19,7 +19,7 @@ public abstract class Liquid : Block
     public readonly float density = 1;
     private Position pos;
     private DateTime lastPressureUpdate = DateTime.Now;
-    
+
     const float MIN_LEVEL = 0.05f;
     const float MIN_CHANGE_PER_SECOND = 0.01f;
     const float FLOW_RATE = 0.5f;
@@ -35,15 +35,21 @@ public abstract class Liquid : Block
     public Liquid(Coordinates coords, bool serverBlock, LiquidData data, float initialPressure) : base(coords, serverBlock, data)
     {
         pos = coords;
-        if (initialPressure > MIN_LEVEL)
+        if (initialPressure >= MIN_LEVEL)
         {
             setPressure(initialPressure);
         }
         else
         {
+            Debug.LogError("Empty water");
             data.pressure = 0;
         }
-        if (isServerBlock) Debug.Log("On server created " + this);
+        if (isServerBlock)
+        {
+            Debug.Log("On server created " + this);
+            Chunk.addNeighbourChangeListener(this);
+
+        }
     }
 
 
@@ -77,7 +83,6 @@ public abstract class Liquid : Block
                 {
                     Debug.LogWarning("Lost water " + data.pressure + " in " + this);
                 }
-                Debug.Log("blu");
                 pos.getChunk().setBlock(pos, new Air(coords, true));
             }
             else
@@ -88,13 +93,15 @@ public abstract class Liquid : Block
             {
 
                 Block block = x.getBlock();
-                if (block is Air)
+                if (block is Solid)
                 {
-                    if (level < MIN_LEVEL) continue;
-                    block = spreadTo(x);
+                    BlockThread.queueAction(new UpdatePressure(this, block));
                 }
-                BlockThread.queueAction(new UpdatePressure(this, block));
-            };
+                else if (block is Air)
+                {
+                    BlockThread.queueAction(new BlockChanged(block, this));
+                }
+            }
         }
     }
 
@@ -110,7 +117,7 @@ public abstract class Liquid : Block
 
     public abstract Transform getPrefab();
 
-    protected abstract Block spreadTo(Position to);
+    protected abstract Liquid spreadTo(Position to, float initialLevel);
 
 
     public override short getID()
@@ -122,52 +129,70 @@ public abstract class Liquid : Block
     public override void applyAction(BlockAction action)
     {
         if (!isServerBlock) return;
-        UpdatePressure pu = action as UpdatePressure;
-        if (pu != null)
+        BlockChanged bc = action as BlockChanged;
+        if (bc != null)
         {
-            Debug.Log("Applying pressure to " + this);
-            Liquid liq = pu.changed as Liquid;
-            if (liq != null)
+            //Debug.Log("Applying " + action);
+            Liquid liq = bc.changed as Liquid;
+            if (liq != null || bc.changed is Air)
             {
-                float otherPressure = liq.getPressure();
-                if (liq.coords.y > coords.y)
+
+                float otherPressure = liq != null ? liq.getPressure() : 0;
+                float otherLvl = otherPressure;
+                if (bc.changed.getCoordinates().y > coords.y)
                 {
-                    otherPressure += liq.density;
+                    otherPressure += density;
                 }
-                if (liq.coords.y < coords.y)
+                if (bc.changed.getCoordinates().y < coords.y)
                 {
-                    otherPressure -= liq.density;
+                    otherPressure -= density;
                 }
-                float dt = Math.Min((float)DateTime.Now.Subtract(lastPressureUpdate).TotalSeconds, pu.getAge());
+                float dt = Math.Min((float)DateTime.Now.Subtract(lastPressureUpdate).TotalSeconds, bc.getAge());
                 float delta = Math.Min(0.1f, FLOW_RATE * dt) * (otherPressure - getPressure());
-                delta = Math.Min(otherPressure - MIN_LEVEL, delta);
-                if (delta > 0 && getPressure() + delta < MIN_LEVEL)
+                delta = Math.Max(-(getPressure() - MIN_LEVEL), delta);
+                if (delta < 0 && otherLvl - delta <= MIN_LEVEL)
                 {
-                    delta = MIN_LEVEL - getPressure() + 0.001f;
-                    if (otherPressure - delta < MIN_LEVEL) delta = 0;
+                    delta = -(MIN_LEVEL - otherLvl + 0.001f);
+                    if (getPressure() + delta < MIN_LEVEL && coords.y <= bc.changed.getCoordinates().y) delta = 0;
                 }
-                delta = Math.Max(-getPressure(), Math.Min(liq.getPressure(), delta));
+                delta = Math.Max(-getPressure(), Math.Min(otherLvl, delta));
                 if (Math.Abs(delta) / dt > MIN_CHANGE_PER_SECOND)
                 {
+                    //Debug.Log("Trying to flow " + delta);
                     if (delta + getPressure() < MIN_LEVEL) delta = -getPressure();
-                    if (-delta + liq.getPressure() < MIN_LEVEL) delta = liq.getPressure();
+                    if (-delta + otherLvl < MIN_LEVEL) delta = otherLvl;
                     addPressure(delta);
-                    liq.addPressure(-delta);
+                    if (liq != null)
+                    {
+                        liq.addPressure(-delta);
+                    }
+                    else
+                    {
+                        liq = spreadTo(bc.changed.getPosition(), -delta) as Liquid;
+                    }
                     Debug.Log(this + ": Flown " + delta + " - " + this + " is now " + getPressure() + " " + liq + " is now " + liq.getPressure());
+                    if (level < MIN_LEVEL && level > 0.001f)
+                    {
+                        Debug.LogError("Lost water");
+                    }
                 }
                 else if (level < MIN_LEVEL)
                 {
                     if (data.pressure > 0)
                     {
-                        Debug.LogWarning("Lost water " + data.pressure + " in " + this);
+                        Debug.LogError("Lost water " + data.pressure + " in " + this);
                     }
-                    Debug.Log(this + ": Removed placeholder");
+                    //Debug.Log(this + ": Removed placeholder");
                     pos.getChunk().setBlock(pos, new Air(coords, true));
                 }
                 else
                 {
                     //Debug.Log(this + ": " + delta + " / " + dt + " too small for change");
                 }
+            }
+            else
+            {
+                //Debug.Log("Invalid neighbour");
             }
         }
         else

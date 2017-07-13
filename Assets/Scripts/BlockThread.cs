@@ -19,7 +19,7 @@ public class BlockThread
 
     public static object actionLock = new object();
 
-    const float MIN_AGE = 0.1f;
+    const float MIN_AGE = 0.05f;
 
 
     public static void queueAction(BlockAction action)
@@ -30,7 +30,7 @@ public class BlockThread
             if (actionSet.Contains(action)) return;
             actions.Enqueue(action);
             actionSet.Add(action);
-            Debug.LogWarning("Added " + action + " target is now " + action.target.getPosition().getBlock());
+            //Debug.LogWarning("Added " + action + " target is now " + action.target.getPosition().getBlock());
         }
     }
 
@@ -73,7 +73,7 @@ public class BlockThread
                 }
                 if (!action.target.getPosition().getBlock().Equals(action.target))
                 {
-                    Debug.LogWarning("Scrapped " + action + " target is now " + action.target.getPosition().getBlock());
+                    //Debug.LogWarning("Scrapped " + action + " target is now " + action.target.getPosition().getBlock());
                 }
                 else
                 {

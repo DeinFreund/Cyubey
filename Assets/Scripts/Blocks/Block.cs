@@ -83,6 +83,6 @@ public abstract class Block
 
     public override string ToString()
     {
-        return base.ToString() + "@" + coords;
+        return base.ToString() + "@" + coords + " #" + GetHashCode();
     }
 }

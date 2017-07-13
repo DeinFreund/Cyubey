@@ -70,7 +70,7 @@ public struct Position
     }
     public Coordinates getChunkCoordinates()
     {
-        return new Coordinates((div_floor(x, Chunk.size)), div_floor(y, Chunk.size), div_floor(z, Chunk.size));
+        return ((Coordinates)this).getChunkCoordinates();
     }
     public Position offset(Coordinates offset)
     {

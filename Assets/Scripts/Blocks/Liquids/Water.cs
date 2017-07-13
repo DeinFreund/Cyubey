@@ -34,11 +34,12 @@ public class Water : Liquid
         return BlockFactory.waterPrefab;
     }
 
-    protected override Block spreadTo(Position to)
+    protected override Liquid spreadTo(Position to, float initialLevel)
     {
+        Debug.Log("Spreading " + this + " to " + to + " initializing with " + initialLevel);
         lock (BlockThread.actionLock)
         {
-            Liquid water = new Water(to, true, 0);
+            Liquid water = new Water(to, true, initialLevel);
             to.getChunk().setBlock(to, water);
             return water;
         }
